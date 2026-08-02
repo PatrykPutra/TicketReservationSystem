@@ -1,0 +1,8 @@
+﻿- Extract Error classes to separate files
++ unify result pattern in Authentication, Ticket and User CQRS pipeline
+- create background service to clean up expired verification codes
+- replace magic numbers in SendAuthenticationCodeHandler Handle method
++ replace EmailVerificationCodeRepository class  GetValidCodeByUserAndCodeAsync and GetLatestByUserAsync methods with FindAsync(Expression<Func<Ticket, bool>> predicate, CancellationToken cancellationToken = default), adjust SendAuthenticationCodeHandler and GenerateTokenHandler accordingly
+- add global error handling middleware
+- refactor folder structure in Infrastructure layer: create Services folder and move there Email, Jobs, InMemory folders. Move Authentication folder to Application layer, Move DomainEventHandlers from infrastructure to application layer
+
