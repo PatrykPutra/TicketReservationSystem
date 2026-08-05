@@ -67,7 +67,7 @@ public class PaymentCheckoutHandlerTests
         var mockPaymentsService = new Mock<IPaymentsService>();
         mockPaymentsService
             .Setup(s => s.CreateCheckoutSessionAsync(It.IsAny<Money>(), It.IsAny<PaymentId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CreateCheckoutSessionResult("https://checkout.url", "cs_test_123"));
+            .ReturnsAsync(Result<CreateCheckoutSessionResult>.Success(new CreateCheckoutSessionResult("https://checkout.url", "cs_test_123")));
 
         using var scope = serviceProvider.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
@@ -81,7 +81,7 @@ public class PaymentCheckoutHandlerTests
 
         var saved = (await uow.Payments.FindAsync(p => p.TicketId == ticketId)).Single();
         Assert.Equal(PaymentStatus.Pending, saved.Status);
-        Assert.Equal("cs_test_123", saved.StripeSessionId);
+        Assert.Equal("cs_test_123", saved.ExternalId);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class PaymentCheckoutHandlerTests
         using (var scope = service.CreateScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var payment = new Payment(PaymentId.CreateUnique(), ticketId, userId, DefaultPrice);
+            var payment = new Payment(PaymentId.CreateUnique(), ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
             uow.Payments.Add(payment);
             await uow.SaveChangesAsync();
         }
@@ -141,5 +141,28 @@ public class PaymentCheckoutHandlerTests
 
         Assert.False(result.IsSuccess);
         Assert.IsType<DuplicatePaymentError>(result.Error);
+    }
+
+    [Fact]
+    public async Task Handle_propagates_currency_mismatch_error_from_service()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var service = CreateServiceProvider(dbName);
+        var (_, ticketId, userId) = SeedReservedTicket(service);
+
+        var mockPaymentsService = new Mock<IPaymentsService>();
+        mockPaymentsService
+            .Setup(s => s.CreateCheckoutSessionAsync(It.IsAny<Money>(), It.IsAny<PaymentId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<CreateCheckoutSessionResult>.Failure(
+                new CurrencyMismatchError("Amount currency does not match configured currency")));
+
+        using var scope = service.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var handler = new CreateCheckoutHandler(uow, mockPaymentsService.Object);
+
+        var result = await handler.Handle(new CreateCheckoutCommand(ticketId, userId), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.IsType<CurrencyMismatchError>(result.Error);
     }
 }

@@ -16,7 +16,8 @@ public class PaymentTests
             PaymentId.CreateUnique(),
             TicketId.CreateUnique(),
             UserId.CreateUnique(),
-            Amount);
+            Amount,
+            PaymentProvider.Stripe);
     }
 
     [Fact]
@@ -26,16 +27,17 @@ public class PaymentTests
 
         Assert.Equal(PaymentStatus.Pending, payment.Status);
         Assert.Equal(Amount, payment.Amount);
+        Assert.Equal(PaymentProvider.Stripe, payment.PaymentProvider);
     }
 
     [Fact]
-    public void SetStripeSessionId_updates_session()
+    public void SetExternalId_updates_external_reference()
     {
         var payment = CreatePendingPayment();
 
-        payment.SetStripeSessionId("cs_test_123");
+        payment.SetExternalId("cs_test_123");
 
-        Assert.Equal("cs_test_123", payment.StripeSessionId);
+        Assert.Equal("cs_test_123", payment.ExternalId);
     }
 
     [Fact]

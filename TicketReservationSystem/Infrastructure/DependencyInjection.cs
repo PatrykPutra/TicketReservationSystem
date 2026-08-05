@@ -3,14 +3,15 @@ using Microsoft.Extensions.Configuration;
 using Quartz;
 using TicketReservationSystem.Domain.Events;
 using TicketReservationSystem.Domain.Repositories;
-using TicketReservationSystem.Infrastructure.Authentication;
-using TicketReservationSystem.Infrastructure.DomainEventHandlers;
-using TicketReservationSystem.Infrastructure.Email;
-using TicketReservationSystem.Infrastructure.InMemory;
-using TicketReservationSystem.Infrastructure.Jobs;
+using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Authentication;
+using TicketReservationSystem.Application.DomainEventHandlers;
+using TicketReservationSystem.Infrastructure.Services.Email;
+using TicketReservationSystem.Infrastructure.Services.InMemory;
+using TicketReservationSystem.Infrastructure.Services.Jobs;
 using TicketReservationSystem.Infrastructure.Persistence;
 using TicketReservationSystem.Infrastructure.Repository;
-using TicketReservationSystem.Infrastructure.Payments;
+using TicketReservationSystem.Infrastructure.Services.Payments;
 
 namespace TicketReservationSystem.Infrastructure;
 
@@ -28,7 +29,7 @@ public static class DependencyInjection
         services.AddScoped<ITicketRepository, TicketRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IEmailVerificationCodeRepository, EmailVerificationCodeRepository>();
+        services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddSingleton<
             DomainEventsDispatcher.IDomainEventsDispatcher,

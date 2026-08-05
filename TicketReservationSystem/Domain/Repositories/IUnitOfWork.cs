@@ -6,7 +6,7 @@
         ITicketRepository Tickets { get; }
         IPaymentRepository Payments { get; }
         IUserRepository Users { get; }
-        IEmailVerificationCodeRepository EmailVerificationCodes { get; }
+        IVerificationCodeRepository VerificationCodes { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -6,6 +6,11 @@ namespace TicketReservationSystem.Application.Commands.Authentication
 {
     public class SendAuthenticationCodeHandler : ICommandHandler<SendAuthenticationCodeCommand, SendAuthenticationCodeResult>
     {
+        private const int RateLimitWindowSeconds = 60;
+        private const int MinCodeValue = 100000;
+        private const int MaxCodeValue = 999999;
+        internal const int CodeLifetimeMinutes = 5;
+
         private readonly IUnitOfWork _unitOfWork;
 
         public SendAuthenticationCodeHandler(IUnitOfWork unitOfWork)
@@ -20,17 +25,17 @@ namespace TicketReservationSystem.Application.Commands.Authentication
             if (user is null)
                 return new SendAuthenticationCodeResult(new UserNotFoundError($"User with email {request.Email} not found"));
 
-            var codes = await _unitOfWork.EmailVerificationCodes.FindAsync(e => e.UserId == user.Id, cancellationToken);
+            var codes = await _unitOfWork.VerificationCodes.FindAsync(e => e.UserId == user.Id, cancellationToken);
             var latestCode = codes.OrderByDescending(e => e.CreatedAt).FirstOrDefault();
 
-            if (latestCode is not null && latestCode.CreatedAt > DateTime.UtcNow.AddSeconds(-60))
+            if (latestCode is not null && latestCode.CreatedAt > DateTime.UtcNow.AddSeconds(-RateLimitWindowSeconds))
                 return new SendAuthenticationCodeResult(new RateLimitedError("Too many requests"));
 
-            var code = Random.Shared.Next(100000, 999999).ToString();
-            var expiresAt = DateTime.UtcNow.AddMinutes(5);
+            var code = Random.Shared.Next(MinCodeValue, MaxCodeValue).ToString();
+            var expiresAt = DateTime.UtcNow.AddMinutes(CodeLifetimeMinutes);
 
-            var verificationCode = EmailVerificationCode.Generate(user.Id, user.Email, code, expiresAt);
-            _unitOfWork.EmailVerificationCodes.Add(verificationCode);
+            var verificationCode = VerificationCode.Generate(user.Id, user.Email, code, expiresAt);
+            _unitOfWork.VerificationCodes.Add(verificationCode);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

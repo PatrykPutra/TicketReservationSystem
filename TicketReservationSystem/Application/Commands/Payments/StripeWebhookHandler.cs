@@ -25,18 +25,29 @@ namespace TicketReservationSystem.Application.Commands.Payments
         {
             var stripeEvent = request.StripeEvent;
 
+            switch (stripeEvent.Type)
+            {
+                case CheckoutSessionCompleted:
+                case CheckoutSessionExpired:
+                case CheckoutSessionAsyncPaymentFailed:
+                case PaymentIntentPaymentFailed:
+                    break;
+                default:
+                    return Result.Success();
+            }
+
             if (stripeEvent.Data.Object is not Session session)
-                return Result.Success();
+                return Result.Failure(new PaymentProcessingError("Webhook event does not contain a checkout session"));
 
             if (!Guid.TryParse(session.ClientReferenceId, out var paymentIdValue))
-                return Result.Success();
+                return Result.Failure(new PaymentProcessingError("Webhook session has an invalid client reference id"));
 
             var paymentId = PaymentId.Create(paymentIdValue);
             var payments = await _unitOfWork.Payments.FindAsync(p => p.Id == paymentId, cancellationToken);
             var payment = payments.SingleOrDefault();
 
             if (payment is null)
-                return Result.Success();
+                return Result.Failure(new PaymentProcessingError("No payment found for webhook session"));
 
             var ticket = await _unitOfWork.Tickets.GetByIdAsync(payment.TicketId, cancellationToken);
 

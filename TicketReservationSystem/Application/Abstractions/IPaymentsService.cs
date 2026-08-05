@@ -4,7 +4,7 @@ namespace TicketReservationSystem.Application.Abstractions
 
     public interface IPaymentsService
     {
-        Task<CreateCheckoutSessionResult> CreateCheckoutSessionAsync(
+        Task<Result<CreateCheckoutSessionResult>> CreateCheckoutSessionAsync(
             Domain.ValueObjects.Money amount,
             Domain.Ids.PaymentId paymentId,
             CancellationToken cancellationToken = default);

@@ -2,10 +2,11 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using TicketReservationSystem.API.Middleware;
 using TicketReservationSystem.Application;
+using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Infrastructure;
-using TicketReservationSystem.Infrastructure.Authentication;
-using TicketReservationSystem.Infrastructure.InMemory;
+using TicketReservationSystem.Infrastructure.Services.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +48,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapScalarApiReference();
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

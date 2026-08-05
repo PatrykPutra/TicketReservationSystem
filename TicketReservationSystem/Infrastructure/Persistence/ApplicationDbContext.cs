@@ -23,7 +23,7 @@ namespace TicketReservationSystem.Infrastructure.Persistence
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<Payment> Payments { get; set; }
         public DbSet<User> Users { get; set; }
-        public DbSet<EmailVerificationCode> EmailVerificationCodes { get; set; }
+        public DbSet<VerificationCode> VerificationCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -39,9 +39,9 @@ namespace TicketReservationSystem.Infrastructure.Persistence
                 v => v.Value,
                 v => TicketId.Create(v));
 
-            var emailVerificationCodeIdConverter = new ValueConverter<EmailVerificationCodeId, Guid>(
+            var verificationCodeIdConverter = new ValueConverter<VerificationCodeId, Guid>(
                 v => v.Value,
-                v => EmailVerificationCodeId.Create(v));
+                v => VerificationCodeId.Create(v));
 
             var paymentIdConverter = new ValueConverter<PaymentId, Guid>(
                 v => v.Value,
@@ -92,7 +92,8 @@ namespace TicketReservationSystem.Infrastructure.Persistence
                 entity.Property(e => e.TicketId).HasConversion(ticketIdConverter);
                 entity.Property(e => e.UserId).HasConversion(userIdConverter);
                 entity.Property(e => e.Amount).HasConversion(moneyConverter);
-                entity.Property(e => e.StripeSessionId).HasMaxLength(200);
+                entity.Property(e => e.PaymentProvider).HasConversion<string>().HasMaxLength(20);
+                entity.Property(e => e.ExternalId).HasMaxLength(200);
                 entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(20);
             });
 
@@ -107,10 +108,10 @@ namespace TicketReservationSystem.Infrastructure.Persistence
                 entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             });
 
-            modelBuilder.Entity<EmailVerificationCode>(entity =>
+            modelBuilder.Entity<VerificationCode>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).HasConversion(emailVerificationCodeIdConverter);
+                entity.Property(e => e.Id).HasConversion(verificationCodeIdConverter);
                 entity.Property(e => e.UserId).HasConversion(userIdConverter);
                 entity.Property(e => e.Code).HasMaxLength(6).IsRequired();
                 entity.Property(e => e.ExpiresAt).IsRequired();

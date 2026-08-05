@@ -34,12 +34,16 @@ namespace TicketReservationSystem.Application.Commands.Payments
                 return new CreateCheckoutResult(new DuplicatePaymentError("An active payment already exists for this ticket"));
 
             var paymentId = PaymentId.CreateUnique();
-            var payment = new Payment(paymentId, request.TicketId, request.UserId, ticket.Price);
+            var payment = new Payment(paymentId, request.TicketId, request.UserId, ticket.Price, PaymentProvider.Stripe);
             _unitOfWork.Payments.Add(payment);
 
-            var session = await _paymentsService.CreateCheckoutSessionAsync(ticket.Price, paymentId, cancellationToken);
+            var sessionResult = await _paymentsService.CreateCheckoutSessionAsync(ticket.Price, paymentId, cancellationToken);
 
-            payment.SetStripeSessionId(session.SessionId);
+            if (sessionResult.IsFailure)
+                return new CreateCheckoutResult(sessionResult.Error);
+
+            var session = sessionResult.Value;
+            payment.SetExternalId(session.SessionId);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

@@ -1,13 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Stripe;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
 using TicketReservationSystem.Application.Requests;
 using TicketReservationSystem.Domain.Ids;
-using TicketReservationSystem.Infrastructure.Payments;
 
 namespace TicketReservationSystem.API.Controllers
 {
@@ -16,12 +13,10 @@ namespace TicketReservationSystem.API.Controllers
     public class PaymentsController : ControllerBase
     {
         private readonly ICommandDispatcher _commandDispatcher;
-        private readonly StripeSettings _stripeSettings;
 
-        public PaymentsController(ICommandDispatcher commandDispatcher, IOptions<StripeSettings> stripeSettings)
+        public PaymentsController(ICommandDispatcher commandDispatcher)
         {
             _commandDispatcher = commandDispatcher;
-            _stripeSettings = stripeSettings.Value;
         }
 
         [Authorize]
@@ -44,29 +39,6 @@ namespace TicketReservationSystem.API.Controllers
             return Ok(result.Value);
         }
 
-        [AllowAnonymous]
-        [HttpPost("webhook")]
-        public async Task<IActionResult> Webhook()
-        {
-            var json = await new StreamReader(Request.Body).ReadToEndAsync();
-            var signatureHeader = Request.Headers["Stripe-Signature"];
-
-            Stripe.Event stripeEvent;
-            try
-            {
-                stripeEvent = EventUtility.ConstructEvent(json, signatureHeader, _stripeSettings.WebhookSecret);
-            }
-            catch (StripeException)
-            {
-                return BadRequest();
-            }
-
-            var command = new StripeWebhookCommand(stripeEvent);
-            await _commandDispatcher.DispatchAsync<StripeWebhookCommand, Result>(command);
-
-            return Ok();
-        }
-
         private static IActionResult ErrorToActionResult(Error error)
         {
             return error switch
@@ -77,6 +49,7 @@ namespace TicketReservationSystem.API.Controllers
                 UnauthorizedUserError => new UnauthorizedResult(),
                 NotFoundError => new NotFoundResult(),
                 CurrencyMismatchError => new BadRequestResult(),
+                UnsupportedCurrencyError => new BadRequestResult(),
                 _ => new StatusCodeResult(500)
             };
         }

@@ -10,7 +10,7 @@ namespace TicketReservationSystem.Infrastructure.Repository
         public ITicketRepository Tickets { get; }
         public IPaymentRepository Payments { get; }
         public IEventRepository Events { get; }
-        public IEmailVerificationCodeRepository EmailVerificationCodes { get; }
+        public IVerificationCodeRepository VerificationCodes { get; }
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -19,7 +19,7 @@ namespace TicketReservationSystem.Infrastructure.Repository
             Tickets = new TicketRepository(context);
             Payments = new PaymentRepository(context);
             Users = new UserRepository(context);
-            EmailVerificationCodes = new EmailVerificationCodeRepository(context);
+            VerificationCodes = new VerificationCodeRepository(context);
         }
 
         public void Dispose() => _context.Dispose();

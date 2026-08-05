@@ -11,18 +11,20 @@ namespace TicketReservationSystem.Domain.Entities
         public TicketId TicketId { get; private set; }
         public UserId UserId { get; private set; }
         public Money Amount { get; private set; }
-        public string? StripeSessionId { get; private set; }
+        public PaymentProvider PaymentProvider { get; private set; }
+        public string? ExternalId { get; private set; }
         public PaymentStatus Status { get; private set; }
 
         public DateTime CreatedAt { get; private set; }
         public DateTime? ModifiedAt { get; private set; }
         public DateTime? CompletedAt { get; private set; }
 
-        public Payment(PaymentId id, TicketId ticketId, UserId userId, Money amount) : base(id)
+        public Payment(PaymentId id, TicketId ticketId, UserId userId, Money amount, PaymentProvider paymentProvider) : base(id)
         {
             TicketId = ticketId;
             UserId = userId;
             Amount = amount;
+            PaymentProvider = paymentProvider;
             Status = PaymentStatus.Pending;
             CreatedAt = DateTime.UtcNow;
         }
@@ -36,9 +38,9 @@ namespace TicketReservationSystem.Domain.Entities
             return Status == PaymentStatus.Pending;
         }
 
-        public void SetStripeSessionId(string sessionId)
+        public void SetExternalId(string externalId)
         {
-            StripeSessionId = sessionId;
+            ExternalId = externalId;
             ModifiedAt = DateTime.UtcNow;
         }
 

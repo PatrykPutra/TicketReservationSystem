@@ -21,7 +21,7 @@ public class AddUserHandlerTests
             options.UseInMemoryDatabase(dbName));
 
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IEmailVerificationCodeRepository, EmailVerificationCodeRepository>();
+        services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddSingleton<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>(
             Mock.Of<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>());

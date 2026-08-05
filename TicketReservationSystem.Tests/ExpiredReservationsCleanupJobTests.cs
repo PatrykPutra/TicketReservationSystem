@@ -7,7 +7,7 @@ using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
 using TicketReservationSystem.Domain.ValueObjects;
-using TicketReservationSystem.Infrastructure.Jobs;
+using TicketReservationSystem.Infrastructure.Services.Jobs;
 using TicketReservationSystem.Infrastructure.Persistence;
 using TicketReservationSystem.Infrastructure.Repository;
 
@@ -178,7 +178,7 @@ public class ExpiredReservationsCleanupJobTests
             reservedTicket.Reserve(userId);
             uow.Tickets.Add(reservedTicket);
 
-            var payment = new Payment(PaymentId.CreateUnique(), ticketId, userId, DefaultPrice);
+            var payment = new Payment(PaymentId.CreateUnique(), ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
             uow.Payments.Add(payment);
 
             await uow.SaveChangesAsync();

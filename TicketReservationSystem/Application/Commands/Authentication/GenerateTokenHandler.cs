@@ -1,6 +1,6 @@
 using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Domain.Repositories;
-using TicketReservationSystem.Infrastructure.Authentication;
 
 namespace TicketReservationSystem.Application.Commands.Authentication
 {
@@ -22,7 +22,7 @@ namespace TicketReservationSystem.Application.Commands.Authentication
             if (user is null)
                 return new GenerateTokenResult(new InvalidCredentialsError("Invalid email or code"));
 
-            var codes = await _unitOfWork.EmailVerificationCodes.FindAsync(
+            var codes = await _unitOfWork.VerificationCodes.FindAsync(
                 e => e.UserId == user.Id && e.Code == request.Code && !e.IsUsed && e.ExpiresAt > DateTime.UtcNow,
                 cancellationToken);
             var code = codes.FirstOrDefault();

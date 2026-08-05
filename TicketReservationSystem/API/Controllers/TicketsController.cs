@@ -56,22 +56,6 @@ namespace TicketReservationSystem.API.Controllers
             return Ok(result.Value);
         }
 
-        [HttpPost("{ticketId:guid}/confirm")]
-        public async Task<IActionResult> Confirm(Guid ticketId, [FromBody] TicketConfirmationRequest request)
-        {
-            var command = new TicketConfirmationCommand(
-                TicketId.Create(ticketId),
-                UserId.Create(request.UserId),
-                request.ConfirmedAt);
-
-            var result = await _commandDispatcher.DispatchAsync<TicketConfirmationCommand, TicketConfirmationResult>(command);
-
-            if (result.IsFailure)
-                return ErrorToActionResult(result.Error);
-
-            return Ok(result.Value);
-        }
-
         [HttpPost("{ticketId:guid}/cancel")]
         public async Task<IActionResult> Cancel(Guid ticketId, [FromBody] TicketCancelationRequest request)
         {
@@ -94,7 +78,6 @@ namespace TicketReservationSystem.API.Controllers
                 TicketNotAvailableError => new ConflictResult(),
                 UnauthorizedUserError => new UnauthorizedResult(),
                 NotFoundError => new NotFoundResult(),
-                CurrencyMismatchError => new BadRequestResult(),
                 _ => new StatusCodeResult(500)
             };
         }

@@ -51,8 +51,8 @@ public class StripeWebhookHandlerTests
         var ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
         ticket.Reserve(userId);
 
-        var payment = new Payment(paymentId, ticketId, userId, DefaultPrice);
-        payment.SetStripeSessionId("cs_test_123");
+        var payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
+        payment.SetExternalId("cs_test_123");
 
         uow.Events.Add(socialEvent);
         uow.Tickets.Add(ticket);
@@ -70,6 +70,18 @@ public class StripeWebhookHandlerTests
             Data = new EventData
             {
                 Object = new Session { ClientReferenceId = paymentId.Value.ToString() },
+            },
+        };
+    }
+
+    private static Event CreateStripeEventWithClientReference(string type, string clientReferenceId)
+    {
+        return new Event
+        {
+            Type = type,
+            Data = new EventData
+            {
+                Object = new Session { ClientReferenceId = clientReferenceId },
             },
         };
     }
@@ -189,5 +201,95 @@ public class StripeWebhookHandlerTests
 
         Assert.Equal(PaymentStatus.Pending, payment.Status);
         Assert.Equal(TicketStatus.Reserved, ticket!.Status);
+    }
+
+    [Fact]
+    public async Task Unknown_event_type_with_non_session_payload_is_noop()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var service = CreateServiceProvider(dbName);
+        var (ticketId, _, paymentId) = SeedReservedWithPendingPayment(service);
+
+        using var scope = service.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var handler = new StripeWebhookHandler(uow);
+
+        var nonSessionEvent = new Event
+        {
+            Type = "payment_intent.succeeded",
+            Data = new EventData { Object = new PaymentIntent() },
+        };
+
+        var result = await handler.Handle(new StripeWebhookCommand(nonSessionEvent), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+
+        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
+        var ticket = await uow.Tickets.GetByIdAsync(ticketId);
+
+        Assert.Equal(PaymentStatus.Pending, payment.Status);
+        Assert.Equal(TicketStatus.Reserved, ticket!.Status);
+    }
+
+    [Fact]
+    public async Task Non_session_event_object_returns_payment_processing_error()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var service = CreateServiceProvider(dbName);
+        var (_, _, paymentId) = SeedReservedWithPendingPayment(service);
+
+        using var scope = service.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var handler = new StripeWebhookHandler(uow);
+
+        var nonSessionEvent = new Event
+        {
+            Type = "checkout.session.completed",
+            Data = new EventData { Object = new Charge() },
+        };
+
+        var result = await handler.Handle(new StripeWebhookCommand(nonSessionEvent), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.IsType<PaymentProcessingError>(result.Error);
+    }
+
+    [Fact]
+    public async Task Invalid_client_reference_id_returns_payment_processing_error()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var service = CreateServiceProvider(dbName);
+        var (_, _, paymentId) = SeedReservedWithPendingPayment(service);
+
+        using var scope = service.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var handler = new StripeWebhookHandler(uow);
+
+        var result = await handler.Handle(
+            new StripeWebhookCommand(CreateStripeEventWithClientReference("checkout.session.completed", "not-a-guid")),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.IsType<PaymentProcessingError>(result.Error);
+    }
+
+    [Fact]
+    public async Task Payment_not_found_returns_payment_processing_error()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var service = CreateServiceProvider(dbName);
+        var (_, _, _) = SeedReservedWithPendingPayment(service);
+
+        using var scope = service.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var handler = new StripeWebhookHandler(uow);
+
+        var unknownPaymentId = PaymentId.CreateUnique();
+        var result = await handler.Handle(
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", unknownPaymentId)),
+            CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.IsType<PaymentProcessingError>(result.Error);
     }
 }

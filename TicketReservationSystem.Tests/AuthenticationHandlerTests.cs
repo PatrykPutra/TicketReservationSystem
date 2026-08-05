@@ -2,11 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Application.Commands.Authentication;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
-using TicketReservationSystem.Infrastructure.Authentication;
 using TicketReservationSystem.Infrastructure.Persistence;
 using TicketReservationSystem.Infrastructure.Repository;
 
@@ -22,7 +22,7 @@ public class AuthenticationHandlerTests
             options.UseInMemoryDatabase(dbName));
 
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IEmailVerificationCodeRepository, EmailVerificationCodeRepository>();
+        services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddSingleton<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>(
             Mock.Of<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>());
@@ -59,7 +59,7 @@ public class AuthenticationHandlerTests
         using (var scope = serviceProvider.CreateScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.EmailVerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
+            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
             var codeEntity = codes.Single();
 
             Assert.NotNull(codeEntity);
@@ -145,7 +145,7 @@ public class AuthenticationHandlerTests
         using (var scope = serviceProvider.CreateScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.EmailVerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
+            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
             var codeEntity = codes.Single();
 
             var handler = new GenerateTokenHandler(uow, mockJwtService.Object);
@@ -159,7 +159,7 @@ public class AuthenticationHandlerTests
         using (var scope = serviceProvider.CreateScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.EmailVerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
+            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
             var codeEntity = codes.Single();
             Assert.True(codeEntity!.IsUsed);
         }
@@ -222,7 +222,7 @@ public class AuthenticationHandlerTests
         using (var scope = serviceProvider.CreateScope())
         {
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.EmailVerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
+            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
             var codeEntity = codes.Single();
 
             var handler = new GenerateTokenHandler(uow, mockJwtService.Object);
@@ -257,8 +257,8 @@ public class AuthenticationHandlerTests
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
             var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            var expiredCode = EmailVerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
-            uow.EmailVerificationCodes.Add(expiredCode);
+            var expiredCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
+            uow.VerificationCodes.Add(expiredCode);
             await uow.SaveChangesAsync();
         }
 
