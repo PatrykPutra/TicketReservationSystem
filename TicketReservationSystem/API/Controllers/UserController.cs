@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TicketReservationSystem.API;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Users;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Queries.Users;
 using TicketReservationSystem.Application.Requests;
 
@@ -23,6 +25,9 @@ namespace TicketReservationSystem.API.Controllers
         [HttpGet("{userId:guid}")]
         public async Task<IActionResult> GetUser(Guid userId)
         {
+            if (!User.TryGetUserId(out var authenticatedUserId) || authenticatedUserId != userId)
+                return Unauthorized();
+
             var query = new GetUserQuery(Domain.Ids.UserId.Create(userId));
             var result = await _queryDispatcher.ExecuteAsync<GetUserQuery, GetUserResult>(query);
 

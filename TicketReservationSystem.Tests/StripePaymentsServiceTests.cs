@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Options;
 using Moq;
-using Stripe;
 using Stripe.Checkout;
+using Stripe;
 using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.ValueObjects;
 using TicketReservationSystem.Infrastructure.Services.Payments;

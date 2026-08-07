@@ -1,4 +1,5 @@
-﻿using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Repositories;
 
 namespace TicketReservationSystem.Application.Commands.Tickets

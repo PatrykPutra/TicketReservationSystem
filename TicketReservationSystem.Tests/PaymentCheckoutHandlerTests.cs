@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;

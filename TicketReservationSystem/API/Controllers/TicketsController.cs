@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TicketReservationSystem.API;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Tickets;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Queries.Tickets;
 using TicketReservationSystem.Application.Requests;
 using TicketReservationSystem.Domain.Ids;
@@ -21,6 +23,7 @@ namespace TicketReservationSystem.API.Controllers
             _commandDispatcher = commandDispatcher;
         }
 
+        [AllowAnonymous]
         [HttpGet("{ticketId:guid}")]
         public async Task<IActionResult> GetTicketById(Guid ticketId)
         {
@@ -33,6 +36,7 @@ namespace TicketReservationSystem.API.Controllers
             return Ok(result.Ticket);
         }
 
+        [AllowAnonymous]
         [HttpGet("{eventId:guid}/tickets")]
         public async Task<IActionResult> GetTicketByEvent(Guid eventId)
         {
@@ -44,6 +48,12 @@ namespace TicketReservationSystem.API.Controllers
         [HttpPost("{ticketId:guid}/reserve")]
         public async Task<IActionResult> Reserve(Guid ticketId, [FromBody] TicketReservationRequest request)
         {
+            if (request.TicketId != ticketId)
+                return BadRequest();
+
+            if (!User.TryGetUserId(out var userId) || userId != request.UserId)
+                return Unauthorized();
+
             var command = new TicketReservationCommand(
                 TicketId.Create(ticketId),
                 UserId.Create(request.UserId));
@@ -59,6 +69,12 @@ namespace TicketReservationSystem.API.Controllers
         [HttpPost("{ticketId:guid}/cancel")]
         public async Task<IActionResult> Cancel(Guid ticketId, [FromBody] TicketCancelationRequest request)
         {
+            if (request.TicketId != ticketId)
+                return BadRequest();
+
+            if (!User.TryGetUserId(out var userId) || userId != request.UserId)
+                return Unauthorized();
+
             var command = new TicketCancelationCommand(
                 TicketId.Create(ticketId),
                 UserId.Create(request.UserId));

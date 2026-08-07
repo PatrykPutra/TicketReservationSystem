@@ -1,8 +1,9 @@
-using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TicketReservationSystem.API;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Requests;
 using TicketReservationSystem.Domain.Ids;
 
@@ -23,8 +24,7 @@ namespace TicketReservationSystem.API.Controllers
         [HttpPost("checkout")]
         public async Task<IActionResult> CreateCheckout([FromBody] PaymentCheckoutRequest request)
         {
-            var userIdClaim = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (!Guid.TryParse(userIdClaim, out var userId) || userId != request.UserId)
+            if (!User.TryGetUserId(out var userId) || userId != request.UserId)
                 return Unauthorized();
 
             var command = new CreateCheckoutCommand(

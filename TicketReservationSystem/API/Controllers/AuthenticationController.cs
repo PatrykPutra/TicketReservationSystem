@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Authentication;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Requests;
 
 namespace TicketReservationSystem.API.Controllers

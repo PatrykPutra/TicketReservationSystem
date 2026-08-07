@@ -1,3 +1,5 @@
+using TicketReservationSystem.Application.Errors;
+
 namespace TicketReservationSystem.Application.Abstractions;
 
 public class Result

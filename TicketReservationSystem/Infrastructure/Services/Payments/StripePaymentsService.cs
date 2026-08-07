@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Options;
-using Stripe;
 using Stripe.Checkout;
+using Stripe;
 using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.ValueObjects;
 

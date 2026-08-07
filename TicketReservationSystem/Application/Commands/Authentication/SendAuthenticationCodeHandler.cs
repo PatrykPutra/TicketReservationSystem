@@ -1,4 +1,5 @@
 using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Repositories;
 

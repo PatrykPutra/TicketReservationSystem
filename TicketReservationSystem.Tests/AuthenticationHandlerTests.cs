@@ -4,6 +4,7 @@ using Moq;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Application.Commands.Authentication;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
