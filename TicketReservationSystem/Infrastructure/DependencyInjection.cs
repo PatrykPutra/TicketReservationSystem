@@ -69,6 +69,13 @@ public static class DependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
         services.AddScoped<IEmailSender, MimeKitEmailSender>();
         services.AddScoped<IDomainEventHandler<AuthenticationCodeGeneratedEvent>, SendAuthenticationCodeEmailHandler>();
+        services.AddScoped<IDomainEventHandler<UserRegisteredEvent>, UserRegistrationEventHandler>();
+        services.AddScoped<IDomainEventHandler<TicketReservedEvent>, TicketReservedEventHandler>();
+        services.AddScoped<IDomainEventHandler<TicketReleasedEvent>, TicketReleasedEventHandler>();
+        services.AddScoped<IDomainEventHandler<TicketConfirmedEvent>, TicketConfirmedEventHandler>();
+        services.AddScoped<IDomainEventHandler<TicketCanceledEvent>, TicketCanceledEventHandler>();
+        services.AddScoped<IDomainEventHandler<PaymentFailedEvent>, PaymentFailedEventHandler>();
+        services.AddScoped<IDomainEventHandler<PaymentCompletedEvent>, PaymentCompletedEventHandler>();
 
         services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
         services.AddScoped<Application.Abstractions.IPaymentsService, StripePaymentsService>();

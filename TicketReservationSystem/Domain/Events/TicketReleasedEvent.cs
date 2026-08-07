@@ -5,10 +5,10 @@
         public class TicketReleasedEvent : DomainEvent
         {
             public TicketId TicketId { get; }
-            public UserId? UserId { get; }
+            public UserId UserId { get; }
             public SocialEventId EventId { get; }
             public DateTime ReleasedAt { get; }
-            public TicketReleasedEvent(TicketId ticketId, SocialEventId eventId, UserId? userId = null, DateTime? releasedAt = null)
+            public TicketReleasedEvent(TicketId ticketId, UserId userId, SocialEventId eventId, DateTime? releasedAt = null)
             {
                 TicketId = ticketId;
                 UserId = userId;

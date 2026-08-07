@@ -91,12 +91,13 @@ namespace TicketReservationSystem.Domain.Entities
             if (Status != TicketStatus.Reserved)
                 throw new TicketStatusException($"Ticket {SeatNumber} is not reserved");
 
+            var releasedByUser = UserId;
             Status = TicketStatus.Available;
             UserId = null;
             ConfirmedAt = null;
             ReservedAt = null;
 
-            AddDomainEvent(new TicketReleasedEvent(Id, EventId));
+            AddDomainEvent(new TicketReleasedEvent(Id, releasedByUser!.Value, EventId));
         }
 
         public void Cancel(UserId userId)
