@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+﻿using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TicketReservationSystem.Domain.Entities;
@@ -13,6 +13,9 @@ namespace TicketReservationSystem.Infrastructure.Persistence
     public class ApplicationDbContext : DbContext
     {
         private readonly IDomainEventsDispatcher _dispatcher;
+
+        private static readonly JsonSerializerOptions JsonOptions =
+            new(JsonSerializerDefaults.Web);
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IDomainEventsDispatcher dispatcher) : base(options)
         {
@@ -48,13 +51,13 @@ namespace TicketReservationSystem.Infrastructure.Persistence
                 v => PaymentId.Create(v));
 
             var moneyConverter = new ValueConverter<Money, string>(
-                v => $"{v.Amount}|{v.Currency}",
+                v => JsonSerializer.Serialize(v, JsonOptions),
                 v => ParseMoney(v));
 
             modelBuilder.Ignore<DomainEvent>();
 
             var dateTimeRangeConverter = new ValueConverter<DateTimeRange, string>(
-                v => $"{v.StartTime:O}|{v.EndTime:O}",
+                v => JsonSerializer.Serialize(v, JsonOptions),
                 v => ParseDateTimeRange(v));
 
             modelBuilder.Entity<SocialEvent>(entity =>
@@ -143,16 +146,26 @@ namespace TicketReservationSystem.Infrastructure.Persistence
 
         private static Money ParseMoney(string value)
         {
-            var parts = value.Split('|');
-            return new Money(decimal.Parse(parts[0]), parts[1]);
+            var dto = JsonSerializer.Deserialize<MoneyDto>(value, JsonOptions);
+            return new Money(dto.Amount, dto.Currency);
         }
 
         private static DateTimeRange ParseDateTimeRange(string value)
         {
-            var parts = value.Split('|');
-            return new DateTimeRange(
-                DateTime.Parse(parts[0], null, DateTimeStyles.RoundtripKind),
-                DateTime.Parse(parts[1], null, DateTimeStyles.RoundtripKind));
+            var dto = JsonSerializer.Deserialize<DateTimeRangeDto>(value, JsonOptions);
+            return new DateTimeRange(dto.StartTime, dto.EndTime);
+        }
+
+        private sealed class MoneyDto
+        {
+            public decimal Amount { get; set; }
+            public string Currency { get; set; } = string.Empty;
+        }
+
+        private sealed class DateTimeRangeDto
+        {
+            public DateTime StartTime { get; set; }
+            public DateTime EndTime { get; set; }
         }
     }
 }
