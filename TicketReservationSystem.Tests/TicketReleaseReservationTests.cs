@@ -29,7 +29,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_sets_status_to_Available()
+    public void ReleaseReservation_OnReservedTicket_SetsStatusToAvailable()
     {
         var ticket = CreateReservedTicket();
 
@@ -39,7 +39,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_clears_UserId()
+    public void ReleaseReservation_OnReservedTicket_ClearsUserId()
     {
         var ticket = CreateReservedTicket();
 
@@ -49,7 +49,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_clears_ReservedAt()
+    public void ReleaseReservation_OnReservedTicket_ClearsReservedAt()
     {
         var ticket = CreateReservedTicket();
 
@@ -59,7 +59,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_clears_ConfirmedAt()
+    public void ReleaseReservation_OnReservedTicket_ClearsConfirmedAt()
     {
         var ticket = CreateReservedTicket();
 
@@ -69,7 +69,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_fires_TicketReleasedEvent()
+    public void ReleaseReservation_OnReservedTicket_FiresTicketReleasedEvent()
     {
         var ticket = CreateReservedTicket();
 
@@ -82,7 +82,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_on_Available_ticket_throws()
+    public void ReleaseReservation_OnAvailableTicket_Throws()
     {
         var ticketId = TicketId.CreateUnique();
         var socialEvent = CreateSocialEvent();
@@ -92,7 +92,7 @@ public class TicketReleaseReservationTests
     }
 
     [Fact]
-    public void ReleaseReservation_on_Confirmed_ticket_throws()
+    public void ReleaseReservation_OnConfirmedTicket_Throws()
     {
         var ticket = CreateReservedTicket();
         var userId = ticket.UserId!.Value;

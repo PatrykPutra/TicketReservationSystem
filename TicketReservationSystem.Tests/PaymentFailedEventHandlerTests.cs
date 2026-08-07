@@ -81,7 +81,7 @@ public class PaymentFailedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sends_failure_email_with_resolved_data()
+    public async Task PaymentFailed_ForResolvedData_SendsEmail()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -102,7 +102,7 @@ public class PaymentFailedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_missing_payment_no_ops()
+    public async Task PaymentFailed_WhenPaymentMissing_DoesNothing()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -119,7 +119,7 @@ public class PaymentFailedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sender_exception_is_swallowed()
+    public async Task PaymentFailed_WhenSenderThrows_SwallowsException()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

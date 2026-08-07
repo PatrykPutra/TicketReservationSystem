@@ -30,7 +30,7 @@ public class StripePaymentsServiceTests
     }
 
     [Fact]
-    public async Task CreateCheckoutSessionAsync_currency_mismatch_returns_failed_result()
+    public async Task CreateCheckoutSessionAsync_OnCurrencyMismatch_ReturnsFailedResult()
     {
         var service = CreateService("PLN");
 
@@ -41,7 +41,7 @@ public class StripePaymentsServiceTests
     }
 
     [Fact]
-    public async Task CreateCheckoutSessionAsync_unknown_currency_returns_unsupported_currency()
+    public async Task CreateCheckoutSessionAsync_ForUnknownCurrency_ReturnsUnsupportedCurrency()
     {
         var service = CreateService("XYZ");
 
@@ -52,7 +52,7 @@ public class StripePaymentsServiceTests
     }
 
     [Fact]
-    public async Task CreateCheckoutSessionAsync_zero_decimal_currency_uses_divisor_1()
+    public async Task CreateCheckoutSessionAsync_ForZeroDecimalCurrency_UsesDivisor1()
     {
         var sessionService = CreateSessionServiceMock();
         var service = CreateService("JPY", sessionService);
@@ -66,7 +66,7 @@ public class StripePaymentsServiceTests
     }
 
     [Fact]
-    public async Task CreateCheckoutSessionAsync_two_decimal_currency_uses_divisor_100()
+    public async Task CreateCheckoutSessionAsync_ForTwoDecimalCurrency_UsesDivisor100()
     {
         var sessionService = CreateSessionServiceMock();
         var service = CreateService("PLN", sessionService);

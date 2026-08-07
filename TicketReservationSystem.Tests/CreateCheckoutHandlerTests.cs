@@ -13,7 +13,7 @@ using TicketReservationSystem.Infrastructure.Repository;
 
 namespace TicketReservationSystem.Tests;
 
-public class PaymentCheckoutHandlerTests
+public class CreateCheckoutHandlerTests
 {
     private static readonly Money DefaultPrice = new(150, "PLN");
 
@@ -59,7 +59,7 @@ public class PaymentCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task Handle_creates_pending_payment_and_returns_checkout()
+    public async Task CreateCheckout_ForReservedTicket_CreatesPendingPaymentAndReturnsCheckout()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -86,7 +86,7 @@ public class PaymentCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task Handle_returns_not_reserved_error_for_unreserved_ticket()
+    public async Task CreateCheckout_ForUnreservedTicket_ReturnsNotReservedError()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -118,7 +118,7 @@ public class PaymentCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task Handle_returns_duplicate_error_when_active_payment_exists()
+    public async Task CreateCheckout_WhenActivePaymentExists_ReturnsDuplicateError()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -145,7 +145,7 @@ public class PaymentCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task Handle_propagates_currency_mismatch_error_from_service()
+    public async Task CreateCheckout_OnCurrencyMismatch_PropagatesError()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);

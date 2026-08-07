@@ -77,7 +77,7 @@ public class TicketReleasedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sends_release_email_with_resolved_data()
+    public async Task TicketReleased_ForResolvedData_SendsEmail()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -98,7 +98,7 @@ public class TicketReleasedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_missing_user_no_ops()
+    public async Task TicketReleased_WhenUserMissing_DoesNothing()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -116,7 +116,7 @@ public class TicketReleasedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sender_exception_is_swallowed()
+    public async Task TicketReleased_WhenSenderThrows_SwallowsException()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

@@ -77,7 +77,7 @@ public class TicketConfirmedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sends_confirmation_email_with_resolved_data()
+    public async Task TicketConfirmed_ForResolvedData_SendsEmail()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -98,7 +98,7 @@ public class TicketConfirmedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_missing_ticket_no_ops()
+    public async Task TicketConfirmed_WhenTicketMissing_DoesNothing()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -115,7 +115,7 @@ public class TicketConfirmedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sender_exception_is_swallowed()
+    public async Task TicketConfirmed_WhenSenderThrows_SwallowsException()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

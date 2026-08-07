@@ -76,7 +76,7 @@ public class TicketReservedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sends_confirmation_email_with_resolved_data()
+    public async Task TicketReserved_ForResolvedData_SendsEmail()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -97,7 +97,7 @@ public class TicketReservedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_without_user_no_ops()
+    public async Task TicketReserved_WhenUserMissing_DoesNothing()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -114,7 +114,7 @@ public class TicketReservedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_missing_ticket_no_ops()
+    public async Task TicketReserved_WhenTicketMissing_DoesNothing()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -131,7 +131,7 @@ public class TicketReservedEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sender_exception_is_swallowed()
+    public async Task TicketReserved_WhenSenderThrows_SwallowsException()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

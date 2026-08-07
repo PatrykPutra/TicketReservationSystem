@@ -32,7 +32,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task SendAuthenticationCodeHandler_user_exists_saves_code_and_returns_success()
+    public async Task SendAuthenticationCode_ForExistingUser_SavesCodeAndReturnsSuccess()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -71,7 +71,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task SendAuthenticationCodeHandler_user_not_found_returns_user_not_found()
+    public async Task SendAuthenticationCode_ForUnknownUser_ReturnsUserNotFound()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -89,7 +89,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task SendAuthenticationCodeHandler_rate_limited_returns_rate_limited()
+    public async Task SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -119,7 +119,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task GenerateTokenHandler_valid_code_returns_token_and_marks_code_used()
+    public async Task GenerateToken_ForValidCode_ReturnsTokenAndMarksCodeUsed()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -167,7 +167,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task GenerateTokenHandler_invalid_code_returns_invalid_credentials()
+    public async Task GenerateToken_ForInvalidCode_ReturnsInvalidCredentials()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -196,7 +196,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task GenerateTokenHandler_used_code_returns_invalid_credentials()
+    public async Task GenerateToken_ForUsedCode_ReturnsInvalidCredentials()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -237,7 +237,7 @@ public class AuthenticationHandlerTests
     }
 
     [Fact]
-    public async Task GenerateTokenHandler_expired_code_returns_invalid_credentials()
+    public async Task GenerateToken_ForExpiredCode_ReturnsInvalidCredentials()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

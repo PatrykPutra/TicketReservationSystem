@@ -77,7 +77,7 @@ public class TicketCanceledEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sends_cancellation_email_with_resolved_data()
+    public async Task TicketCanceled_ForResolvedData_SendsEmail()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -98,7 +98,7 @@ public class TicketCanceledEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_missing_user_no_ops()
+    public async Task TicketCanceled_WhenUserMissing_DoesNothing()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -117,7 +117,7 @@ public class TicketCanceledEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sender_exception_is_swallowed()
+    public async Task TicketCanceled_WhenSenderThrows_SwallowsException()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

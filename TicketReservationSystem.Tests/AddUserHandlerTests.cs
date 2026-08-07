@@ -31,7 +31,7 @@ public class AddUserHandlerTests
     }
 
     [Fact]
-    public async Task AddUserHandler_duplicate_email_returns_error()
+    public async Task AddUser_ForDuplicateEmail_ReturnsError()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

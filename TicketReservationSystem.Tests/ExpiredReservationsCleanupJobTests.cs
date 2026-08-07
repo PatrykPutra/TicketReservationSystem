@@ -35,7 +35,7 @@ public class ExpiredReservationsCleanupJobTests
     }
 
     [Fact]
-    public async Task Execute_releases_expired_reserved_tickets()
+    public async Task Execute_ForExpiredReservations_ReleasesTickets()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -105,7 +105,7 @@ public class ExpiredReservationsCleanupJobTests
     }
 
     [Fact]
-    public async Task Execute_does_not_release_tickets_within_threshold()
+    public async Task Execute_WithinGracePeriod_DoesNotReleaseTickets()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -148,7 +148,7 @@ public class ExpiredReservationsCleanupJobTests
     }
 
     [Fact]
-    public async Task Execute_does_not_release_reserved_ticket_with_active_pending_payment()
+    public async Task Execute_WithActivePendingPayment_DoesNotReleaseTicket()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);

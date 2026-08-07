@@ -21,7 +21,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void NewPayment_is_Pending_and_has_snapshot()
+    public void Payment_ForValidInputs_IsPendingWithSnapshot()
     {
         var payment = CreatePendingPayment();
 
@@ -31,7 +31,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void SetExternalId_updates_external_reference()
+    public void SetExternalId_ForValidValue_UpdatesExternalReference()
     {
         var payment = CreatePendingPayment();
 
@@ -41,7 +41,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void MarkCompleted_sets_Completed_and_raises_event()
+    public void MarkCompleted_OnPendingPayment_SetsCompletedAndRaisesEvent()
     {
         var payment = CreatePendingPayment();
         var userId = payment.UserId;
@@ -55,7 +55,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void MarkFailed_sets_Failed_and_raises_event()
+    public void MarkFailed_OnPendingPayment_SetsFailedAndRaisesEvent()
     {
         var payment = CreatePendingPayment();
 
@@ -67,7 +67,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void MarkExpired_sets_Expired_and_raises_event()
+    public void MarkExpired_OnPendingPayment_SetsExpiredAndRaisesEvent()
     {
         var payment = CreatePendingPayment();
 
@@ -79,7 +79,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void MarkCompleted_on_completed_payment_throws()
+    public void MarkCompleted_OnCompletedPayment_Throws()
     {
         var payment = CreatePendingPayment();
         payment.MarkCompleted();
@@ -88,7 +88,7 @@ public class PaymentTests
     }
 
     [Fact]
-    public void MarkExpired_on_completed_payment_throws()
+    public void MarkExpired_OnCompletedPayment_Throws()
     {
         var payment = CreatePendingPayment();
         payment.MarkCompleted();

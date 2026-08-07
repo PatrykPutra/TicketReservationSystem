@@ -88,7 +88,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Completed_event_marks_payment_paid_and_confirms_ticket()
+    public async Task StripeWebhook_OnCompletedEvent_MarksPaymentPaidAndConfirmsTicket()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -114,7 +114,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Completed_event_redelivery_is_idempotent_noop()
+    public async Task StripeWebhook_OnCompletedEventRedelivery_IsIdempotentNoop()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -132,7 +132,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Expired_event_marks_payment_expired_and_releases_ticket()
+    public async Task StripeWebhook_OnExpiredEvent_MarksPaymentExpiredAndReleasesTicket()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -157,7 +157,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task PaymentFailed_event_marks_payment_failed_and_releases_ticket()
+    public async Task StripeWebhook_OnPaymentFailedEvent_MarksPaymentFailedAndReleasesTicket()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -181,7 +181,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Unknown_event_type_is_noop()
+    public async Task StripeWebhook_OnUnknownEventType_IsNoop()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -205,7 +205,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Unknown_event_type_with_non_session_payload_is_noop()
+    public async Task StripeWebhook_OnUnknownEventWithNonSessionPayload_IsNoop()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -233,7 +233,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Non_session_event_object_returns_payment_processing_error()
+    public async Task StripeWebhook_OnNonSessionEventObject_ReturnsPaymentProcessingError()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -256,7 +256,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Invalid_client_reference_id_returns_payment_processing_error()
+    public async Task StripeWebhook_OnInvalidClientReferenceId_ReturnsPaymentProcessingError()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);
@@ -275,7 +275,7 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Payment_not_found_returns_payment_processing_error()
+    public async Task StripeWebhook_WhenPaymentNotFound_ReturnsPaymentProcessingError()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);

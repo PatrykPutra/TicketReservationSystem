@@ -24,7 +24,7 @@ public class UserRegistrationEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sends_welcome_email_to_registered_user()
+    public async Task UserRegistered_ForNewUser_SendsWelcomeEmail()
     {
         var handler = CreateHandler(out var emailSender);
         var userId = UserId.CreateUnique();
@@ -42,7 +42,7 @@ public class UserRegistrationEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_welcome_email_has_expected_subject()
+    public async Task UserRegistered_ForNewUser_SendsWelcomeEmailWithExpectedSubject()
     {
         var handler = CreateHandler(out var emailSender);
         var domainEvent = new UserRegisteredEvent(UserId.CreateUnique(), "user@test.com");
@@ -59,7 +59,7 @@ public class UserRegistrationEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_welcome_email_has_welcome_body()
+    public async Task UserRegistered_ForNewUser_SendsWelcomeEmailWithWelcomeBody()
     {
         var handler = CreateHandler(out var emailSender);
         var domainEvent = new UserRegisteredEvent(UserId.CreateUnique(), "user@test.com");
@@ -76,7 +76,7 @@ public class UserRegistrationEventHandlerTests
     }
 
     [Fact]
-    public async Task Handle_sender_exception_is_swallowed()
+    public async Task UserRegistered_WhenSenderThrows_SwallowsException()
     {
         var emailSender = new Mock<IEmailSender>();
         emailSender

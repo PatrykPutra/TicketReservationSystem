@@ -70,7 +70,7 @@ public class ExpiredPaymentsCleanupJobTests
     }
 
     [Fact]
-    public async Task Execute_marks_stale_payments_expired_and_releases_ticket()
+    public async Task Execute_ForStalePayments_MarksExpiredAndReleasesTicket()
     {
         var dbName = Guid.NewGuid().ToString();
         var service = CreateServiceProvider(dbName);

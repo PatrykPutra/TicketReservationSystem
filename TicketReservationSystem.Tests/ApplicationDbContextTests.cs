@@ -24,7 +24,7 @@ public class ApplicationDbContextTests
     }
 
     [Fact]
-    public async Task SaveAndRead_PaymentMoney_round_trips_losslessly()
+    public async Task SaveChangesAsync_PaymentMoney_RoundTripsLosslessly()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -51,7 +51,7 @@ public class ApplicationDbContextTests
     }
 
     [Fact]
-    public void Money_converter_stores_amount_and_currency_as_JSON()
+    public void OnModelCreating_MoneyValue_StoresAmountAndCurrencyAsJson()
     {
         using var scope = CreateServiceProvider(Guid.NewGuid().ToString()).CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -71,7 +71,7 @@ public class ApplicationDbContextTests
     }
 
     [Fact]
-    public async Task SaveAndRead_EventTimeRange_round_trips_losslessly()
+    public async Task SaveChangesAsync_EventTimeRange_RoundTripsLosslessly()
     {
         var dbName = Guid.NewGuid().ToString();
         var serviceProvider = CreateServiceProvider(dbName);
@@ -102,7 +102,7 @@ public class ApplicationDbContextTests
     }
 
     [Fact]
-    public void TimeRange_converter_stores_start_and_end_as_JSON()
+    public void OnModelCreating_TimeRangeValue_StoresStartAndEndAsJson()
     {
         using var scope = CreateServiceProvider(Guid.NewGuid().ToString()).CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

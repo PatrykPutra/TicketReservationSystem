@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Newtonsoft.Json.Linq;
 using System.Text.Json;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Events;
