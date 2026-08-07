@@ -15,19 +15,6 @@ namespace TicketReservationSystem.API.Controllers
             _commandDispatcher = commandDispatcher;
         }
 
-        [Obsolete("Use POST /api/Authentication/send-code and POST /api/Authentication/token instead")]
-        [HttpPost]
-        public async Task<IActionResult> Authenticate([FromBody] AuthenticationRequest request)
-        {
-            var command = new AuthenticationCommand(request.Email);
-            var result = await _commandDispatcher.DispatchAsync<AuthenticationCommand, AuthenticationResult>(command);
-
-            if (result.IsFailure)
-                return Unauthorized();
-
-            return Ok(result.Value);
-        }
-
         [HttpPost("send-code")]
         public async Task<IActionResult> SendCode([FromBody] AuthenticationCodeRequest request)
         {

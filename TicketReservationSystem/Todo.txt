@@ -1,8 +1,24 @@
 ﻿- Extract Error classes to separate files
-+ unify result pattern in Authentication, Ticket and User CQRS pipeline
-- create background service to clean up expired verification codes
 - replace magic numbers in SendAuthenticationCodeHandler Handle method
-+ replace EmailVerificationCodeRepository class  GetValidCodeByUserAndCodeAsync and GetLatestByUserAsync methods with FindAsync(Expression<Func<Ticket, bool>> predicate, CancellationToken cancellationToken = default), adjust SendAuthenticationCodeHandler and GenerateTokenHandler accordingly
+- rename EmailVerificationCode to VerificationCode and EmailVerificationCodeRepository to VerificationCodeRepository
 - add global error handling middleware
-- refactor folder structure in Infrastructure layer: create Services folder and move there Email, Jobs, InMemory folders. Move Authentication folder to Application layer, Move DomainEventHandlers from infrastructure to application layer
+- refactor folder structure in Infrastructure layer: 
+    - create Services folder 
+        - Email, 
+        - Jobs, 
+        - InMemory
+        - Payment 
+    - Move Authentication folder to Application layer, 
+    - Move DomainEventHandlers to application layer
+- Add currency check in StripePaymentService, Money value object has currency property, it should be verified if Money currency is the same as specified in AppSettings
+- MinorUnitDivision logic in StripePaymentService should be done according to the currency, because there are some currencies which does not need division into minor units (they don't have minor unit)
+- Refactor Payment entity 
+    - delete StripeSessionId property
+    - remove SetStripeSessionId method
+    - create PaymentProvider property storing enum value of PaymentProvider 
+    - create string ExternalId property storign sessionId 
+- StripeWebhookHandler always return success, I know that this return value is never used so it doesn't really matter what is the output but it looks confusing when reading the logic of this handler. Refactor to return Failed result when handler fails to handle request
+- Create separate controller for webhooks, move webhook from PaymentController into WebhooksController, give it a name StripeWebhook and route webhooks/stripe 
+- remove ticket confirm endpoint from TicketController and related CQRS pipeline. From now on ticket confirmation will be done when payment will be registered
+
 
