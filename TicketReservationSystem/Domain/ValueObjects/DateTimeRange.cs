@@ -2,8 +2,8 @@
 {
     public readonly record struct DateTimeRange
     {
-        public DateTime StartTime { get; }
-        public DateTime EndTime { get; }
+        public DateTime StartTime { get; init; }
+        public DateTime EndTime { get; init; }
 
         public DateTimeRange(DateTime startTime, DateTime endTime)
         {

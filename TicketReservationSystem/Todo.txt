@@ -1,24 +1,17 @@
-﻿- Extract Error classes to separate files
-- replace magic numbers in SendAuthenticationCodeHandler Handle method
-- rename EmailVerificationCode to VerificationCode and EmailVerificationCodeRepository to VerificationCodeRepository
-- add global error handling middleware
-- refactor folder structure in Infrastructure layer: 
-    - create Services folder 
-        - Email, 
-        - Jobs, 
-        - InMemory
-        - Payment 
-    - Move Authentication folder to Application layer, 
-    - Move DomainEventHandlers to application layer
-- Add currency check in StripePaymentService, Money value object has currency property, it should be verified if Money currency is the same as specified in AppSettings
-- MinorUnitDivision logic in StripePaymentService should be done according to the currency, because there are some currencies which does not need division into minor units (they don't have minor unit)
-- Refactor Payment entity 
-    - delete StripeSessionId property
-    - remove SetStripeSessionId method
-    - create PaymentProvider property storing enum value of PaymentProvider 
-    - create string ExternalId property storign sessionId 
-- StripeWebhookHandler always return success, I know that this return value is never used so it doesn't really matter what is the output but it looks confusing when reading the logic of this handler. Refactor to return Failed result when handler fails to handle request
-- Create separate controller for webhooks, move webhook from PaymentController into WebhooksController, give it a name StripeWebhook and route webhooks/stripe 
-- remove ticket confirm endpoint from TicketController and related CQRS pipeline. From now on ticket confirmation will be done when payment will be registered
-
+﻿+ Change TicketsController Authorization to AllowAnonymous for GetTicketByEvent and GetById methods
++ TicketController Reserve and Cancel methods should verify if userId matches JWT claim userId
++ TicketController Reserve and Cancel methods should verify if ticketId from request matches ticketId from path parameter
++ UserController GetUser method should verify if provided userId matches JWT claim userId
++ Extract Errors folder from Abstractions folder to be directly under Application folder
++ ApplicationDbContext ParseMoney and ParseDateTimeRange helper methods should be changed to JSON serializer. From now on, Money and DateTimeRange will be serialized as JSON in the database. This will allow for easier querying and filtering of these types in the future.
++ Add UserRegistrationEventHandler to send welcome email to user after registration
++ Add TicketReservedEventHandler to send confirmation email to user after ticket reservation
++ Add TicketReleasedEventHandler to send cancellation email to user after ticket cancellation
++ Add TicketConfiremdEventHandler to send confirmation email to user after ticket confirmation
++ Add TicketCanceledEventHandler to send cancellation email to user after ticket cancellation
++ Add PaymentFailedEventHandler to send email to user after payment failure
++ Add PaymentCompletedEventHandler to send email to user after payment completion
+- Correct Tests naming convention to follow the pattern of MethodName_Scenario_ExpectedResult eg. Append_ForTwoStrings_ReturnsConcatenatedString
+- Improve tests coverage for whole project
+- Configure endpoint route naming convention to be lowercase
 

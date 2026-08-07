@@ -1,6 +1,7 @@
-﻿using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Newtonsoft.Json.Linq;
+using System.Text.Json;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Events;
 using TicketReservationSystem.Domain.Ids;
@@ -52,13 +53,13 @@ namespace TicketReservationSystem.Infrastructure.Persistence
 
             var moneyConverter = new ValueConverter<Money, string>(
                 v => JsonSerializer.Serialize(v, JsonOptions),
-                v => ParseMoney(v));
+                v => JsonSerializer.Deserialize<Money>(v, JsonOptions));
 
             modelBuilder.Ignore<DomainEvent>();
 
             var dateTimeRangeConverter = new ValueConverter<DateTimeRange, string>(
                 v => JsonSerializer.Serialize(v, JsonOptions),
-                v => ParseDateTimeRange(v));
+                v => JsonSerializer.Deserialize<DateTimeRange>(v, JsonOptions));
 
             modelBuilder.Entity<SocialEvent>(entity =>
             {
@@ -142,30 +143,6 @@ namespace TicketReservationSystem.Infrastructure.Persistence
             await _dispatcher.DispatchAsync(domainEvents, cancellationToken);
 
             return await base.SaveChangesAsync(cancellationToken);
-        }
-
-        private static Money ParseMoney(string value)
-        {
-            var dto = JsonSerializer.Deserialize<MoneyDto>(value, JsonOptions);
-            return new Money(dto.Amount, dto.Currency);
-        }
-
-        private static DateTimeRange ParseDateTimeRange(string value)
-        {
-            var dto = JsonSerializer.Deserialize<DateTimeRangeDto>(value, JsonOptions);
-            return new DateTimeRange(dto.StartTime, dto.EndTime);
-        }
-
-        private sealed class MoneyDto
-        {
-            public decimal Amount { get; set; }
-            public string Currency { get; set; } = string.Empty;
-        }
-
-        private sealed class DateTimeRangeDto
-        {
-            public DateTime StartTime { get; set; }
-            public DateTime EndTime { get; set; }
         }
     }
 }
