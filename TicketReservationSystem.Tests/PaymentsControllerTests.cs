@@ -5,6 +5,7 @@ using Moq;
 using TicketReservationSystem.API.Controllers;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Requests;
 using TicketReservationSystem.Domain.Ids;
 
@@ -86,5 +87,78 @@ public class PaymentsControllerTests
         });
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    private static async Task<IActionResult> CreateCheckoutWithError(Error error)
+    {
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<CreateCheckoutCommand, CreateCheckoutResult>(It.IsAny<CreateCheckoutCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new CreateCheckoutResult(error));
+        });
+        SetAuthenticatedUser(controller, UserIdValue);
+
+        return await controller.CreateCheckout(new PaymentCheckoutRequest
+        {
+            TicketId = Guid.NewGuid(),
+            UserId = UserIdValue
+        });
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenTicketNotReserved_ReturnsConflict()
+    {
+        var result = await CreateCheckoutWithError(new TicketNotReservedError("Not reserved"));
+        Assert.IsType<ConflictResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenTicketNotAvailable_ReturnsConflict()
+    {
+        var result = await CreateCheckoutWithError(new TicketNotAvailableError("Not available"));
+        Assert.IsType<ConflictResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenDuplicatePayment_ReturnsConflict()
+    {
+        var result = await CreateCheckoutWithError(new DuplicatePaymentError("Duplicate"));
+        Assert.IsType<ConflictResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenUnauthorizedUserError_ReturnsUnauthorized()
+    {
+        var result = await CreateCheckoutWithError(new UnauthorizedUserError("Forbidden"));
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenNotFoundError_ReturnsNotFound()
+    {
+        var result = await CreateCheckoutWithError(new NotFoundError("Missing"));
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenCurrencyMismatch_ReturnsBadRequest()
+    {
+        var result = await CreateCheckoutWithError(new CurrencyMismatchError("Mismatch"));
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenUnsupportedCurrency_ReturnsBadRequest()
+    {
+        var result = await CreateCheckoutWithError(new UnsupportedCurrencyError("Unsupported"));
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    [Fact]
+    public async Task CreateCheckout_WhenUnexpectedError_Returns500()
+    {
+        var result = await CreateCheckoutWithError(new InvalidCredentialsError("Unexpected"));
+        var statusCode = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(500, statusCode.StatusCode);
     }
 }

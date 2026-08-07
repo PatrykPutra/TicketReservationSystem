@@ -28,6 +28,9 @@ namespace TicketReservationSystem.API.Controllers
             var json = await new StreamReader(Request.Body).ReadToEndAsync();
             var signatureHeader = Request.Headers["Stripe-Signature"];
 
+            if (string.IsNullOrEmpty(signatureHeader))
+                return BadRequest();
+
             Stripe.Event stripeEvent;
             try
             {

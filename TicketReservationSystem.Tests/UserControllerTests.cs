@@ -4,8 +4,11 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using TicketReservationSystem.API.Controllers;
 using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Commands.Users;
 using TicketReservationSystem.Application.DTOs;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Queries.Users;
+using TicketReservationSystem.Application.Requests;
 using TicketReservationSystem.Domain.Ids;
 
 namespace TicketReservationSystem.Tests;
@@ -14,12 +17,17 @@ public class UserControllerTests
 {
     private static readonly Guid UserIdValue = Guid.NewGuid();
 
-    private static UserController CreateController(Action<Mock<IQueryDispatcher>>? querySetup = null)
+    private static UserController CreateController(
+        Action<Mock<IQueryDispatcher>>? querySetup = null,
+        Action<Mock<ICommandDispatcher>>? commandSetup = null)
     {
         var queryDispatcherMock = new Mock<IQueryDispatcher>();
         querySetup?.Invoke(queryDispatcherMock);
 
-        var controller = new UserController(queryDispatcherMock.Object, Mock.Of<ICommandDispatcher>())
+        var commandDispatcherMock = new Mock<ICommandDispatcher>();
+        commandSetup?.Invoke(commandDispatcherMock);
+
+        var controller = new UserController(queryDispatcherMock.Object, commandDispatcherMock.Object)
         {
             ControllerContext = new ControllerContext
             {
@@ -90,5 +98,80 @@ public class UserControllerTests
         var result = await controller.GetUser(UserIdValue);
 
         Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task AddUser_WhenUserCreated_ReturnsOk()
+    {
+        var userId = UserId.CreateUnique();
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<AddUserCommand, AddUserResult>(
+                    It.IsAny<AddUserCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(AddUserResult.Success(userId));
+        });
+
+        var result = await controller.AddUser(new AddUserRequest
+        {
+            Email = "new@test.com",
+            FirstName = "New",
+            LastName = "User",
+            PhoneNumber = "123456789"
+        });
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<AddUserResponse>(ok.Value);
+        Assert.Equal(userId, response.Id);
+    }
+
+    [Fact]
+    public async Task AddUser_WhenUserAlreadyExists_ReturnsConflict()
+    {
+        var result = await AddUserWithError(new UserAlreadyExistsError("Email taken"));
+
+        Assert.IsType<ConflictResult>(result);
+    }
+
+    [Fact]
+    public async Task AddUser_WhenUnexpectedError_Returns500()
+    {
+        var result = await AddUserWithError(new InvalidCredentialsError("Unexpected"));
+
+        var statusCode = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(500, statusCode.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddUser_WhenNotFoundError_ReturnsNotFound()
+    {
+        var result = await AddUserWithError(new NotFoundError("Missing"));
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task AddUser_WhenCurrencyMismatchError_ReturnsBadRequest()
+    {
+        var result = await AddUserWithError(new CurrencyMismatchError("Mismatch"));
+
+        Assert.IsType<BadRequestResult>(result);
+    }
+
+    private static async Task<IActionResult> AddUserWithError(Error error)
+    {
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<AddUserCommand, AddUserResult>(
+                    It.IsAny<AddUserCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new AddUserResult(error));
+        });
+
+        return await controller.AddUser(new AddUserRequest
+        {
+            Email = "new@test.com",
+            FirstName = "New",
+            LastName = "User",
+            PhoneNumber = "123456789"
+        });
     }
 }

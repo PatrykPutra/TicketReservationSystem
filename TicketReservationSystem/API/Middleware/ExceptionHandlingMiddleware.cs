@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TicketReservationSystem.API.Middleware
@@ -26,7 +27,6 @@ namespace TicketReservationSystem.API.Middleware
                 _logger.LogError(exception, "Unhandled exception during request processing");
 
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                context.Response.ContentType = "application/problem+json";
 
                 var problemDetails = new ProblemDetails
                 {
@@ -34,7 +34,11 @@ namespace TicketReservationSystem.API.Middleware
                     Title = GenericErrorMessage,
                 };
 
-                await context.Response.WriteAsJsonAsync(problemDetails, context.RequestAborted);
+                await context.Response.WriteAsJsonAsync(
+                    problemDetails,
+                    (JsonSerializerOptions?)null,
+                    "application/problem+json",
+                    context.RequestAborted);
             }
         }
     }

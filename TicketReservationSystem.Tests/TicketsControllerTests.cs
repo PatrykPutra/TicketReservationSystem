@@ -8,6 +8,7 @@ using TicketReservationSystem.API.Controllers;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Tickets;
 using TicketReservationSystem.Application.DTOs;
+using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Queries.Tickets;
 using TicketReservationSystem.Application.Requests;
 using TicketReservationSystem.Domain.Entities;
@@ -20,12 +21,17 @@ public class TicketsControllerTests
     private static readonly Guid UserIdValue = Guid.NewGuid();
     private static readonly Guid TicketIdValue = Guid.NewGuid();
 
-    private static TicketsController CreateController(Action<Mock<ICommandDispatcher>>? commandSetup = null)
+    private static TicketsController CreateController(
+        Action<Mock<IQueryDispatcher>>? querySetup = null,
+        Action<Mock<ICommandDispatcher>>? commandSetup = null)
     {
+        var queryDispatcherMock = new Mock<IQueryDispatcher>();
+        querySetup?.Invoke(queryDispatcherMock);
+
         var commandDispatcherMock = new Mock<ICommandDispatcher>();
         commandSetup?.Invoke(commandDispatcherMock);
 
-        var controller = new TicketsController(Mock.Of<IQueryDispatcher>(), commandDispatcherMock.Object)
+        var controller = new TicketsController(queryDispatcherMock.Object, commandDispatcherMock.Object)
         {
             ControllerContext = new ControllerContext
             {
@@ -88,6 +94,65 @@ public class TicketsControllerTests
             ?.GetCustomAttribute<AllowAnonymousAttribute>();
 
         Assert.Null(attribute);
+    }
+
+    [Fact]
+    public async Task GetTicketById_WhenTicketFound_ReturnsOk()
+    {
+        var ticketDto = new TicketDto(
+            TicketId.Create(TicketIdValue),
+            SocialEventId.CreateUnique(),
+            "A1",
+            TicketStatus.Available,
+            null,
+            150m,
+            "PLN");
+        var controller = CreateController(querySetup: mock =>
+        {
+            mock.Setup(d => d.ExecuteAsync<GetTicketByIdQuery, GetTicketByIdResult>(
+                    It.IsAny<GetTicketByIdQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new GetTicketByIdResult(ticketDto));
+        });
+
+        var result = await controller.GetTicketById(TicketIdValue);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(ticketDto, ok.Value);
+    }
+
+    [Fact]
+    public async Task GetTicketById_WhenTicketMissing_ReturnsNotFound()
+    {
+        var controller = CreateController(querySetup: mock =>
+        {
+            mock.Setup(d => d.ExecuteAsync<GetTicketByIdQuery, GetTicketByIdResult>(
+                    It.IsAny<GetTicketByIdQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new GetTicketByIdResult(null));
+        });
+
+        var result = await controller.GetTicketById(TicketIdValue);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task GetTicketByEvent_ReturnsOkWithTickets()
+    {
+        var tickets = new List<TicketDto>
+        {
+            new(TicketId.CreateUnique(), SocialEventId.CreateUnique(), "A1", TicketStatus.Available, null, 150m, "PLN")
+        };
+        var controller = CreateController(querySetup: mock =>
+        {
+            mock.Setup(d => d.ExecuteAsync<GetTicketsByEventQuery, GetTicketsByEventResult>(
+                    It.IsAny<GetTicketsByEventQuery>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new GetTicketsByEventResult(tickets));
+        });
+
+        var result = await controller.GetTicketByEvent(Guid.NewGuid());
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(tickets, ok.Value);
     }
 
     [Fact]
@@ -248,5 +313,54 @@ public class TicketsControllerTests
         });
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Reserve_WhenTicketNotAvailable_ReturnsConflict()
+    {
+        var result = await ReserveWithError(new TicketNotAvailableError("Not available"));
+
+        Assert.IsType<ConflictResult>(result);
+    }
+
+    [Fact]
+    public async Task Reserve_WhenUnauthorizedUserError_ReturnsUnauthorized()
+    {
+        var result = await ReserveWithError(new UnauthorizedUserError("Forbidden"));
+
+        Assert.IsType<UnauthorizedResult>(result);
+    }
+
+    [Fact]
+    public async Task Reserve_WhenNotFoundError_ReturnsNotFound()
+    {
+        var result = await ReserveWithError(new NotFoundError("Missing"));
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Reserve_WhenUnexpectedError_Returns500()
+    {
+        var result = await ReserveWithError(new InvalidCredentialsError("Unexpected"));
+
+        var statusCode = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(500, statusCode.StatusCode);
+    }
+
+    private static async Task<IActionResult> ReserveWithError(Error error)
+    {
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<TicketReservationCommand, TicketReservationResult>(It.IsAny<TicketReservationCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TicketReservationResult(error));
+        });
+        SetAuthenticatedUser(controller, UserIdValue);
+
+        return await controller.Reserve(TicketIdValue, new TicketReservationRequest
+        {
+            TicketId = TicketIdValue,
+            UserId = UserIdValue
+        });
     }
 }
