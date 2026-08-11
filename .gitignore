@@ -365,3 +365,4 @@ FodyWeavers.xsd
 # AI agents
 .scratch/
 .opencode/
+docs/
