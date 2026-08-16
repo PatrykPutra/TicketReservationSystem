@@ -230,15 +230,24 @@ Set the placeholders in `TicketReservationSystem/appsettings.json`:
 
 ```jsonc
 {
-  "Jwt":  { "Key": "<min-32-char-secret>", "Issuer": "...", "Audience": "..." },
-  "Smtp": { "Host": "smtp-relay.brevo.com", "Port": 587, "Username": "...", "Password": "..." },
-  "Stripe": {
-    "SecretKey": "sk_test_...",
-    "WebhookSecret": "whsec_...",
-    "SuccessUrl": "https://localhost:7010/success",
-    "CancelUrl": "https://localhost:7010/cancel",
-    "Currency": "PLN"
-  }
+"Jwt": {
+  "Key": "replace_with_your_security_key_replace_with_your_security_key",
+},
+"Smtp": {
+  "Host": "replace_with_smtp_provider_host_address",
+  "Port": 587,
+  "Username": "replace_with_smtp_provider_username",
+  "Password": "replace_with_smtp_provider_password",
+  "FromEmail": "replace_with_your_email_address",
+  "FromName": "Ticket reservation system"
+},
+"Stripe": {
+  "SecretKey": "sk_test_replace_me",
+  "WebhookSecret": "whsec_replace_me",
+  "SuccessUrl": "replace_with_your_success_url",
+  "CancelUrl": "replace_with_your_cancel_url",
+  "Currency": "PLN"
+}
 }
 ```
 
