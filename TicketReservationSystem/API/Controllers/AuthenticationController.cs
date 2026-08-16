@@ -17,6 +17,10 @@ namespace TicketReservationSystem.API.Controllers
         }
 
         [HttpPost("send-code")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SendCode([FromBody] AuthenticationCodeRequest request)
         {
             var command = new SendAuthenticationCodeCommand(request.Email);
@@ -34,6 +38,9 @@ namespace TicketReservationSystem.API.Controllers
         }
 
         [HttpPost("token")]
+        [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> Token([FromBody] AuthenticationTokenRequest request)
         {
             var command = new GenerateTokenCommand(request.Email, request.Code);

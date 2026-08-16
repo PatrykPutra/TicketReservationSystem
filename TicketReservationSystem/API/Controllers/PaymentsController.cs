@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TicketReservationSystem.API;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
 using TicketReservationSystem.Application.Errors;
@@ -22,6 +21,12 @@ namespace TicketReservationSystem.API.Controllers
 
         [Authorize]
         [HttpPost("checkout")]
+        [ProducesResponseType(typeof(CreateCheckoutResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateCheckout([FromBody] PaymentCheckoutRequest request)
         {
             if (!User.TryGetUserId(out var userId) || userId != request.UserId)

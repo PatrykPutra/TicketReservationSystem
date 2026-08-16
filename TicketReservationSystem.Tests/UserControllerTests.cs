@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -174,4 +175,64 @@ public class UserControllerTests
             PhoneNumber = "123456789"
         });
     }
+
+    [Fact]
+    public void GetUser_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(UserController.GetUser)));
+    }
+
+    [Fact]
+    public void GetUser_Documentation_ContainsStatus401Unauthorized()
+    {
+        Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(UserController.GetUser)));
+    }
+
+    [Fact]
+    public void GetUser_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(UserController.GetUser)));
+    }
+
+    [Fact]
+    public void GetUser_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(UserController.GetUser)));
+    }
+
+    [Fact]
+    public void AddUser_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(UserController.AddUser)));
+    }
+
+    [Fact]
+    public void AddUser_Documentation_ContainsStatus400BadRequest()
+    {
+        Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(UserController.AddUser)));
+    }
+
+    [Fact]
+    public void AddUser_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(UserController.AddUser)));
+    }
+
+    [Fact]
+    public void AddUser_Documentation_ContainsStatus409Conflict()
+    {
+        Assert.Contains(StatusCodes.Status409Conflict, GetDocumentedCodes(nameof(UserController.AddUser)));
+    }
+
+    [Fact]
+    public void AddUser_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(UserController.AddUser)));
+    }
+
+    private static int[] GetDocumentedCodes(string methodName) =>
+        typeof(UserController).GetMethod(methodName)!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode)
+            .ToArray();
 }

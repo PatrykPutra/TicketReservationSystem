@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -161,4 +162,46 @@ public class PaymentsControllerTests
         var statusCode = Assert.IsType<StatusCodeResult>(result);
         Assert.Equal(500, statusCode.StatusCode);
     }
+
+    [Fact]
+    public void CreateCheckout_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(PaymentsController.CreateCheckout)));
+    }
+
+    [Fact]
+    public void CreateCheckout_Documentation_ContainsStatus400BadRequest()
+    {
+        Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(PaymentsController.CreateCheckout)));
+    }
+
+    [Fact]
+    public void CreateCheckout_Documentation_ContainsStatus401Unauthorized()
+    {
+        Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(PaymentsController.CreateCheckout)));
+    }
+
+    [Fact]
+    public void CreateCheckout_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(PaymentsController.CreateCheckout)));
+    }
+
+    [Fact]
+    public void CreateCheckout_Documentation_ContainsStatus409Conflict()
+    {
+        Assert.Contains(StatusCodes.Status409Conflict, GetDocumentedCodes(nameof(PaymentsController.CreateCheckout)));
+    }
+
+    [Fact]
+    public void CreateCheckout_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(PaymentsController.CreateCheckout)));
+    }
+
+    private static int[] GetDocumentedCodes(string methodName) =>
+        typeof(PaymentsController).GetMethod(methodName)!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode)
+            .ToArray();
 }

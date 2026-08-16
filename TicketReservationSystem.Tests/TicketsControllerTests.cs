@@ -363,4 +363,112 @@ public class TicketsControllerTests
             UserId = UserIdValue
         });
     }
+
+    [Fact]
+    public void GetTicketById_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.GetTicketById)));
+    }
+
+    [Fact]
+    public void GetTicketById_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(TicketsController.GetTicketById)));
+    }
+
+    [Fact]
+    public void GetTicketById_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.GetTicketById)));
+    }
+
+    [Fact]
+    public void GetTicketByEvent_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.GetTicketByEvent)));
+    }
+
+    [Fact]
+    public void GetTicketByEvent_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.GetTicketByEvent)));
+    }
+
+    [Fact]
+    public void Reserve_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.Reserve)));
+    }
+
+    [Fact]
+    public void Reserve_Documentation_ContainsStatus400BadRequest()
+    {
+        Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(TicketsController.Reserve)));
+    }
+
+    [Fact]
+    public void Reserve_Documentation_ContainsStatus401Unauthorized()
+    {
+        Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(TicketsController.Reserve)));
+    }
+
+    [Fact]
+    public void Reserve_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(TicketsController.Reserve)));
+    }
+
+    [Fact]
+    public void Reserve_Documentation_ContainsStatus409Conflict()
+    {
+        Assert.Contains(StatusCodes.Status409Conflict, GetDocumentedCodes(nameof(TicketsController.Reserve)));
+    }
+
+    [Fact]
+    public void Reserve_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.Reserve)));
+    }
+
+    [Fact]
+    public void Cancel_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.Cancel)));
+    }
+
+    [Fact]
+    public void Cancel_Documentation_ContainsStatus400BadRequest()
+    {
+        Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(TicketsController.Cancel)));
+    }
+
+    [Fact]
+    public void Cancel_Documentation_ContainsStatus401Unauthorized()
+    {
+        Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(TicketsController.Cancel)));
+    }
+
+    [Fact]
+    public void Cancel_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(TicketsController.Cancel)));
+    }
+
+    [Fact]
+    public void Cancel_Documentation_ContainsStatus409Conflict()
+    {
+        Assert.Contains(StatusCodes.Status409Conflict, GetDocumentedCodes(nameof(TicketsController.Cancel)));
+    }
+
+    [Fact]
+    public void Cancel_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.Cancel)));
+    }
+
+    private static int[] GetDocumentedCodes(string methodName) =>
+        typeof(TicketsController).GetMethod(methodName)!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode)
+            .ToArray();
 }

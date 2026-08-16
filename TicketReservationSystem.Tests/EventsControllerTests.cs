@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -94,4 +95,40 @@ public class EventsControllerTests
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Same(events, ok.Value);
     }
+
+    [Fact]
+    public void GetEventById_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(EventsController.GetEventById)));
+    }
+
+    [Fact]
+    public void GetEventById_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(EventsController.GetEventById)));
+    }
+
+    [Fact]
+    public void GetEventById_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(EventsController.GetEventById)));
+    }
+
+    [Fact]
+    public void GetEvents_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(EventsController.GetEvents)));
+    }
+
+    [Fact]
+    public void GetEvents_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(EventsController.GetEvents)));
+    }
+
+    private static int[] GetDocumentedCodes(string methodName) =>
+        typeof(EventsController).GetMethod(methodName)!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode)
+            .ToArray();
 }

@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Http;
@@ -106,4 +107,28 @@ public class WebhooksControllerTests
         var statusCode = Assert.IsType<StatusCodeResult>(result);
         Assert.Equal(500, statusCode.StatusCode);
     }
+
+    [Fact]
+    public void StripeWebhook_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(WebhooksController.StripeWebhook)));
+    }
+
+    [Fact]
+    public void StripeWebhook_Documentation_ContainsStatus400BadRequest()
+    {
+        Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(WebhooksController.StripeWebhook)));
+    }
+
+    [Fact]
+    public void StripeWebhook_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(WebhooksController.StripeWebhook)));
+    }
+
+    private static int[] GetDocumentedCodes(string methodName) =>
+        typeof(WebhooksController).GetMethod(methodName)!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode)
+            .ToArray();
 }

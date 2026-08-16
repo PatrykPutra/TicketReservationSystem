@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -132,4 +133,52 @@ public class AuthenticationControllerTests
 
         Assert.IsType<UnauthorizedResult>(result);
     }
+
+    [Fact]
+    public void SendCode_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(AuthenticationController.SendCode)));
+    }
+
+    [Fact]
+    public void SendCode_Documentation_ContainsStatus404NotFound()
+    {
+        Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(AuthenticationController.SendCode)));
+    }
+
+    [Fact]
+    public void SendCode_Documentation_ContainsStatus429TooManyRequests()
+    {
+        Assert.Contains(StatusCodes.Status429TooManyRequests, GetDocumentedCodes(nameof(AuthenticationController.SendCode)));
+    }
+
+    [Fact]
+    public void SendCode_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(AuthenticationController.SendCode)));
+    }
+
+    [Fact]
+    public void Token_Documentation_ContainsStatus200OK()
+    {
+        Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(AuthenticationController.Token)));
+    }
+
+    [Fact]
+    public void Token_Documentation_ContainsStatus401Unauthorized()
+    {
+        Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(AuthenticationController.Token)));
+    }
+
+    [Fact]
+    public void Token_Documentation_ContainsStatus500InternalServerError()
+    {
+        Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(AuthenticationController.Token)));
+    }
+
+    private static int[] GetDocumentedCodes(string methodName) =>
+        typeof(AuthenticationController).GetMethod(methodName)!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode)
+            .ToArray();
 }

@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TicketReservationSystem.API;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Users;
+using TicketReservationSystem.Application.DTOs;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Application.Queries.Users;
 using TicketReservationSystem.Application.Requests;
@@ -23,6 +23,10 @@ namespace TicketReservationSystem.API.Controllers
 
         [Authorize]
         [HttpGet("{userId:guid}")]
+        [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetUser(Guid userId)
         {
             if (!User.TryGetUserId(out var authenticatedUserId) || authenticatedUserId != userId)
@@ -38,6 +42,11 @@ namespace TicketReservationSystem.API.Controllers
         }
 
         [HttpPost]
+        [ProducesResponseType(typeof(AddUserResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> AddUser([FromBody] AddUserRequest request)
         {
             var command = new AddUserCommand(
