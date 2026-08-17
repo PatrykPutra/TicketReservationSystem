@@ -107,12 +107,9 @@ public class AuthenticationControllerTests
         });
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        var value = ok.Value!;
-        var token = value.GetType().GetProperty("token")!.GetValue(value);
-        var expiresAtValue = value.GetType().GetProperty("expiresAt")!.GetValue(value);
-
-        Assert.Equal("jwt-token", (string)token!);
-        Assert.Equal(expiresAt, (DateTime)expiresAtValue!);
+        var response = Assert.IsType<TokenResponse>(ok.Value);
+        Assert.Equal("jwt-token", response.Token);
+        Assert.Equal(expiresAt, response.ExpiresAt);
     }
 
     [Fact]

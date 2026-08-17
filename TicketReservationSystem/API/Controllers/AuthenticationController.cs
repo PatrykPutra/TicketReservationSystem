@@ -49,7 +49,7 @@ namespace TicketReservationSystem.API.Controllers
             if (result.IsFailure)
                 return Unauthorized();
 
-            return Ok(new { token = result.Value.Token, expiresAt = result.Value.ExpiresAt });
+            return Ok(new TokenResponse(result.Value.Token, result.Value.ExpiresAt));
         }
     }
 }
