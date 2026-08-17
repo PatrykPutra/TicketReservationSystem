@@ -1,5 +1,4 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using System.Linq.Expressions;
 using Moq;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Authentication;
@@ -8,270 +7,209 @@ using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
-using TicketReservationSystem.Infrastructure.Persistence;
-using TicketReservationSystem.Infrastructure.Repository;
 
 namespace TicketReservationSystem.Tests;
 
 public class AuthenticationHandlerTests
 {
-    private static ServiceProvider CreateServiceProvider(string dbName)
+    private sealed record UnitOfWorkMocks(
+        Mock<IUnitOfWork> Uow,
+        Mock<IUserRepository> Users,
+        Mock<IVerificationCodeRepository> Codes);
+
+    private static User CreateUser(UserId userId)
     {
-        var services = new ServiceCollection();
+        var user = new User(userId);
+        user.Register("test@test.com", "Test", "User", "123456789");
+        return user;
+    }
 
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseInMemoryDatabase(dbName));
+    private static UnitOfWorkMocks CreateUnitOfWork(
+        User? user,
+        List<VerificationCode>? codes = null)
+    {
+        var usersRepo = new Mock<IUserRepository>();
+        usersRepo.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddSingleton<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>(
-            Mock.Of<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>());
+        var codesRepo = new Mock<IVerificationCodeRepository>();
+        codesRepo.Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(codes ?? new List<VerificationCode>());
 
-        return services.BuildServiceProvider();
+        var uow = new Mock<IUnitOfWork>();
+        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
+        uow.SetupGet(u => u.VerificationCodes).Returns(codesRepo.Object);
+        uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        return new UnitOfWorkMocks(uow, usersRepo, codesRepo);
+    }
+
+    private static Mock<IJwtService> CreateJwtService(UserId userId)
+    {
+        var jwtService = new Mock<IJwtService>();
+        jwtService.Setup(s => s.GenerateToken(userId, "test@test.com")).Returns("test-token");
+        return jwtService;
     }
 
     [Fact]
-    public async Task SendAuthenticationCode_ForExistingUser_SavesCodeAndReturnsSuccess()
+    public async Task SendAuthenticationCode_ForExistingUser_ReturnsSuccess()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
         var userId = UserId.CreateUnique();
+        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(userId);
-            user.Register("test@test.com", "Test", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new SendAuthenticationCodeHandler(uow);
+        Assert.True(result.IsSuccess);
+    }
 
-            var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
+    [Fact]
+    public async Task SendAuthenticationCode_ForExistingUser_AddsVerificationCode()
+    {
+        var userId = UserId.CreateUnique();
+        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
-            Assert.True(result.IsSuccess);
-        }
+        VerificationCode? captured = null;
+        mocks.Codes.Setup(r => r.Add(It.IsAny<VerificationCode>()))
+            .Callback<VerificationCode>(code => captured = code);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
-            var codeEntity = codes.Single();
+        await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
 
-            Assert.NotNull(codeEntity);
-            Assert.Equal(userId, codeEntity.UserId);
-            Assert.False(codeEntity.IsUsed);
-            Assert.True(codeEntity.ExpiresAt > DateTime.UtcNow);
-        }
+        Assert.NotNull(captured);
+        Assert.Equal(userId, captured!.UserId);
+        Assert.False(captured.IsUsed);
+        Assert.True(captured.ExpiresAt > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task SendAuthenticationCode_ForExistingUser_SavesChanges()
+    {
+        var userId = UserId.CreateUnique();
+        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
+
+        await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
+
+        mocks.Uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task SendAuthenticationCode_ForUnknownUser_ReturnsUserNotFound()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
+        var mocks = CreateUnitOfWork(user: null);
+        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new SendAuthenticationCodeHandler(uow);
+        var result = await handler.Handle(new SendAuthenticationCodeCommand("nonexistent@test.com"), CancellationToken.None);
 
-            var result = await handler.Handle(new SendAuthenticationCodeCommand("nonexistent@test.com"), CancellationToken.None);
-
-            Assert.False(result.IsSuccess);
-            Assert.IsType<UserNotFoundError>(result.Error);
-        }
+        Assert.True(result.IsFailure);
+        Assert.IsType<UserNotFoundError>(result.Error);
     }
 
     [Fact]
     public async Task SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
         var userId = UserId.CreateUnique();
+        var recentCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var mocks = CreateUnitOfWork(CreateUser(userId), new List<VerificationCode> { recentCode });
+        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(userId);
-            user.Register("test@test.com", "Test", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new SendAuthenticationCodeHandler(uow);
-
-            await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
-
-            var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
-
-            Assert.False(result.IsSuccess);
-            Assert.IsType<RateLimitedError>(result.Error);
-        }
+        Assert.True(result.IsFailure);
+        Assert.IsType<RateLimitedError>(result.Error);
     }
 
     [Fact]
-    public async Task GenerateToken_ForValidCode_ReturnsTokenAndMarksCodeUsed()
+    public async Task GenerateToken_ForValidCode_ReturnsTokenWithExpiry()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
         var userId = UserId.CreateUnique();
-        var mockJwtService = new Mock<IJwtService>();
-        mockJwtService.Setup(x => x.GenerateToken(userId, "test@test.com")).Returns("test-token");
+        var validCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var mocks = CreateUnitOfWork(CreateUser(userId), new List<VerificationCode> { validCode });
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(userId).Object);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(userId);
-            user.Register("test@test.com", "Test", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var sendHandler = new SendAuthenticationCodeHandler(uow);
-            await sendHandler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
-        }
+        Assert.True(result.IsSuccess);
+        Assert.Equal("test-token", result.Value.Token);
+        Assert.True(result.Value.ExpiresAt > DateTime.UtcNow);
+    }
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
-            var codeEntity = codes.Single();
+    [Fact]
+    public async Task GenerateToken_ForValidCode_MarksCodeUsed()
+    {
+        var userId = UserId.CreateUnique();
+        var validCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var mocks = CreateUnitOfWork(CreateUser(userId), new List<VerificationCode> { validCode });
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(userId).Object);
 
-            var handler = new GenerateTokenHandler(uow, mockJwtService.Object);
-            var result = await handler.Handle(new GenerateTokenCommand("test@test.com", codeEntity!.Code), CancellationToken.None);
+        await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
 
-            Assert.True(result.IsSuccess);
-            Assert.Equal("test-token", result.Value.Token);
-            Assert.NotNull(result.Value.ExpiresAt);
-        }
+        Assert.True(validCode.IsUsed);
+    }
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
-            var codeEntity = codes.Single();
-            Assert.True(codeEntity!.IsUsed);
-        }
+    [Fact]
+    public async Task GenerateToken_ForUnknownUser_ReturnsInvalidCredentials()
+    {
+        var mocks = CreateUnitOfWork(user: null);
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
+
+        var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
+
+        Assert.True(result.IsFailure);
+        Assert.IsType<InvalidCredentialsError>(result.Error);
     }
 
     [Fact]
     public async Task GenerateToken_ForInvalidCode_ReturnsInvalidCredentials()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
         var userId = UserId.CreateUnique();
-        var mockJwtService = new Mock<IJwtService>();
+        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(userId);
-            user.Register("test@test.com", "Test", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "000000"), CancellationToken.None);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new GenerateTokenHandler(uow, mockJwtService.Object);
-
-            var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "000000"), CancellationToken.None);
-
-            Assert.False(result.IsSuccess);
-            Assert.IsType<InvalidCredentialsError>(result.Error);
-        }
+        Assert.True(result.IsFailure);
+        Assert.IsType<InvalidCredentialsError>(result.Error);
     }
 
     [Fact]
-    public async Task GenerateToken_ForUsedCode_ReturnsInvalidCredentials()
+    public async Task GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
         var userId = UserId.CreateUnique();
-        var mockJwtService = new Mock<IJwtService>();
-        mockJwtService.Setup(x => x.GenerateToken(userId, "test@test.com")).Returns("test-token");
+        var usedCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        usedCode.MarkAsUsed();
+        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(userId);
-            user.Register("test@test.com", "Test", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        Expression<Func<VerificationCode, bool>>? predicate = null;
+        mocks.Codes
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .Callback<Expression<Func<VerificationCode, bool>>, CancellationToken>((expr, _) => predicate = expr)
+            .ReturnsAsync(new List<VerificationCode>());
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var sendHandler = new SendAuthenticationCodeHandler(uow);
-            await sendHandler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
-        }
+        await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var codes = await uow.VerificationCodes.FindAsync(e => e.UserId == userId, CancellationToken.None);
-            var codeEntity = codes.Single();
-
-            var handler = new GenerateTokenHandler(uow, mockJwtService.Object);
-            await handler.Handle(new GenerateTokenCommand("test@test.com", codeEntity!.Code), CancellationToken.None);
-
-            var result = await handler.Handle(new GenerateTokenCommand("test@test.com", codeEntity!.Code), CancellationToken.None);
-
-            Assert.False(result.IsSuccess);
-            Assert.IsType<InvalidCredentialsError>(result.Error);
-        }
+        Assert.NotNull(predicate);
+        Assert.False(predicate!.Compile()(usedCode));
     }
 
     [Fact]
-    public async Task GenerateToken_ForExpiredCode_ReturnsInvalidCredentials()
+    public async Task GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
         var userId = UserId.CreateUnique();
-        var mockJwtService = new Mock<IJwtService>();
+        var expiredCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
+        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(userId);
-            user.Register("test@test.com", "Test", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        Expression<Func<VerificationCode, bool>>? predicate = null;
+        mocks.Codes
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .Callback<Expression<Func<VerificationCode, bool>>, CancellationToken>((expr, _) => predicate = expr)
+            .ReturnsAsync(new List<VerificationCode>());
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
 
-            var expiredCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
-            uow.VerificationCodes.Add(expiredCode);
-            await uow.SaveChangesAsync();
-        }
-
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new GenerateTokenHandler(uow, mockJwtService.Object);
-
-            var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
-
-            Assert.False(result.IsSuccess);
-            Assert.IsType<InvalidCredentialsError>(result.Error);
-        }
+        Assert.NotNull(predicate);
+        Assert.False(predicate!.Compile()(expiredCode));
     }
 }

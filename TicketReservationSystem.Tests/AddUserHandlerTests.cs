@@ -1,88 +1,102 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Moq;
-using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Users;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
-using TicketReservationSystem.Infrastructure.Persistence;
-using TicketReservationSystem.Infrastructure.Repository;
 
 namespace TicketReservationSystem.Tests;
 
 public class AddUserHandlerTests
 {
-    private static ServiceProvider CreateServiceProvider(string dbName)
+    private sealed record UnitOfWorkMocks(
+        Mock<IUnitOfWork> Uow,
+        Mock<IUserRepository> Users);
+
+    private static UnitOfWorkMocks CreateUnitOfWork(User? existingUser)
     {
-        var services = new ServiceCollection();
+        var usersRepo = new Mock<IUserRepository>();
+        usersRepo.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
 
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseInMemoryDatabase(dbName));
-
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IVerificationCodeRepository, VerificationCodeRepository>();
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddSingleton<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>(
-            Mock.Of<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>());
-
-        return services.BuildServiceProvider();
+        var uow = new Mock<IUnitOfWork>();
+        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
+        uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        return new UnitOfWorkMocks(uow, usersRepo);
     }
 
     [Fact]
-    public async Task AddUser_ForNewEmail_CreatesUserAndReturnsSuccess()
+    public async Task AddUser_ForNewEmail_ReturnsSuccessWithGeneratedId()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
+        var mocks = CreateUnitOfWork(existingUser: null);
+        var handler = new AddUserHandler(mocks.Uow.Object);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new AddUserHandler(uow);
+        var result = await handler.Handle(
+            new AddUserCommand("new@test.com", "New", "User", "987654321"),
+            CancellationToken.None);
 
-            var result = await handler.Handle(
-                new AddUserCommand("new@test.com", "New", "User", "987654321"),
-                CancellationToken.None);
+        Assert.True(result.IsSuccess);
+        Assert.NotEqual(Guid.Empty, result.Value.Id.Value);
+    }
 
-            Assert.True(result.IsSuccess);
-            Assert.NotEqual(Guid.Empty, result.Value.Id.Value);
+    [Fact]
+    public async Task AddUser_ForNewEmail_AddsRegisteredUserToRepository()
+    {
+        var mocks = CreateUnitOfWork(existingUser: null);
+        var handler = new AddUserHandler(mocks.Uow.Object);
 
-            var saved = await uow.Users.GetByEmailAsync("new@test.com");
-            Assert.NotNull(saved);
-            Assert.Equal("New", saved.FirstName);
-            Assert.Equal("User", saved.LastName);
-            Assert.Equal("987654321", saved.PhoneNumber);
-        }
+        await handler.Handle(
+            new AddUserCommand("new@test.com", "New", "User", "987654321"),
+            CancellationToken.None);
+
+        mocks.Users.Verify(u => u.Add(It.Is<User>(saved =>
+            saved.Email == "new@test.com" &&
+            saved.FirstName == "New" &&
+            saved.LastName == "User" &&
+            saved.PhoneNumber == "987654321")), Times.Once);
+    }
+
+    [Fact]
+    public async Task AddUser_ForNewEmail_SavesChanges()
+    {
+        var mocks = CreateUnitOfWork(existingUser: null);
+        var handler = new AddUserHandler(mocks.Uow.Object);
+
+        await handler.Handle(
+            new AddUserCommand("new@test.com", "New", "User", "987654321"),
+            CancellationToken.None);
+
+        mocks.Uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task AddUser_ForDuplicateEmail_ReturnsError()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var serviceProvider = CreateServiceProvider(dbName);
-        var email = "existing@test.com";
+        var existing = new User(UserId.CreateUnique());
+        existing.Register("existing@test.com", "Existing", "User", "123456789");
+        var mocks = CreateUnitOfWork(existingUser: existing);
+        var handler = new AddUserHandler(mocks.Uow.Object);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var user = new User(UserId.CreateUnique());
-            user.Register(email, "Existing", "User", "123456789");
-            uow.Users.Add(user);
-            await uow.SaveChangesAsync();
-        }
+        var result = await handler.Handle(
+            new AddUserCommand("existing@test.com", "New", "User", "987654321"),
+            CancellationToken.None);
 
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-            var handler = new AddUserHandler(uow);
+        Assert.True(result.IsFailure);
+        Assert.IsType<UserAlreadyExistsError>(result.Error);
+    }
 
-            var result = await handler.Handle(
-                new AddUserCommand(email, "New", "User", "987654321"),
-                CancellationToken.None);
+    [Fact]
+    public async Task AddUser_ForDuplicateEmail_DoesNotSaveChanges()
+    {
+        var existing = new User(UserId.CreateUnique());
+        existing.Register("existing@test.com", "Existing", "User", "123456789");
+        var mocks = CreateUnitOfWork(existingUser: existing);
+        var handler = new AddUserHandler(mocks.Uow.Object);
 
-            Assert.False(result.IsSuccess);
-            Assert.IsType<UserAlreadyExistsError>(result.Error);
-        }
+        await handler.Handle(
+            new AddUserCommand("existing@test.com", "New", "User", "987654321"),
+            CancellationToken.None);
+
+        mocks.Uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }
