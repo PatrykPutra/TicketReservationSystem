@@ -26,13 +26,8 @@ public class GetUserHandlerTests
 
         var result = await handler.Handle(new GetUserQuery(email: "user@test.com"), CancellationToken.None);
 
-        var dto = Assert.IsType<UserDto>(result.User);
-        Assert.Equal(userId, dto.Id);
-        Assert.Equal("user@test.com", dto.Email);
-        Assert.Equal("Jan", dto.FirstName);
-        Assert.Equal("Kowalski", dto.LastName);
-        Assert.Equal("123456789", dto.PhoneNumber);
-        Assert.False(dto.IsVerified);
+        var expected = new UserDto(userId, "user@test.com", "Jan", "Kowalski", "123456789", false);
+        Assert.Equal(expected, result.User);
     }
 
     [Fact]
@@ -52,9 +47,8 @@ public class GetUserHandlerTests
 
         var result = await handler.Handle(new GetUserQuery(userId: userId), CancellationToken.None);
 
-        var dto = Assert.IsType<UserDto>(result.User);
-        Assert.Equal(userId, dto.Id);
-        Assert.Equal("user@test.com", dto.Email);
+        var expected = new UserDto(userId, "user@test.com", "Jan", "Kowalski", "123456789", false);
+        Assert.Equal(expected, result.User);
     }
 
     [Fact]

@@ -32,14 +32,8 @@ public class GetTicketByIdHandlerTests
 
         var result = await handler.Handle(new GetTicketByIdQuery(ticketId), CancellationToken.None);
 
-        var dto = Assert.IsType<TicketDto>(result.Ticket);
-        Assert.Equal(ticketId, dto.Id);
-        Assert.Equal(eventId, dto.EventId);
-        Assert.Equal("A1", dto.SeatNumber);
-        Assert.Equal(TicketStatus.Reserved, dto.Status);
-        Assert.Equal(userId, dto.UserId);
-        Assert.Equal(150m, dto.PriceAmount);
-        Assert.Equal("PLN", dto.PriceCurrency);
+        var expected = new TicketDto(ticketId, eventId, "A1", TicketStatus.Reserved, userId, 150m, "PLN");
+        Assert.Equal(expected, result.Ticket);
     }
 
     [Fact]

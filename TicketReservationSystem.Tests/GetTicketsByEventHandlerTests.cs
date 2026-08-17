@@ -1,4 +1,5 @@
 using Moq;
+using TicketReservationSystem.Application.DTOs;
 using TicketReservationSystem.Application.Queries.Tickets;
 using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
@@ -29,14 +30,8 @@ public class GetTicketsByEventHandlerTests
 
         var result = await handler.Handle(new GetTicketsByEventQuery(eventId), CancellationToken.None);
 
-        var dto = Assert.Single(result.Tickets);
-        Assert.Equal(ticketId, dto.Id);
-        Assert.Equal(eventId, dto.EventId);
-        Assert.Equal("A1", dto.SeatNumber);
-        Assert.Equal(TicketStatus.Available, dto.Status);
-        Assert.Null(dto.UserId);
-        Assert.Equal(150m, dto.PriceAmount);
-        Assert.Equal("PLN", dto.PriceCurrency);
+        var expected = new TicketDto(ticketId, eventId, "A1", TicketStatus.Available, null, 150m, "PLN");
+        Assert.Equal(new List<TicketDto> { expected }, result.Tickets);
     }
 
     [Fact]
