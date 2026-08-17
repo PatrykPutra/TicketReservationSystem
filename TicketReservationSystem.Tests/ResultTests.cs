@@ -1,0 +1,33 @@
+using TicketReservationSystem.Application.Abstractions;
+using TicketReservationSystem.Application.Errors;
+
+namespace TicketReservationSystem.Tests;
+
+public class ResultTests
+{
+    private sealed class TestResult(bool isSuccess, Error error) : Result(isSuccess, error)
+    {
+    }
+
+    [Fact]
+    public void Result_ForSuccessWithNonNoneError_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new TestResult(true, new NotFoundError("x")));
+    }
+
+    [Fact]
+    public void Result_ForFailureWithNoneError_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => new TestResult(false, new NoneError()));
+    }
+
+    [Fact]
+    public void Result_ForSuccessWithNoneError_Succeeds()
+    {
+        var result = new TestResult(true, new NoneError());
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.IsFailure);
+        Assert.IsType<NoneError>(result.Error);
+    }
+}

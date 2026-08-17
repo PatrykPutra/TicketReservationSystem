@@ -31,6 +31,32 @@ public class AddUserHandlerTests
     }
 
     [Fact]
+    public async Task AddUser_ForNewEmail_CreatesUserAndReturnsSuccess()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var serviceProvider = CreateServiceProvider(dbName);
+
+        using (var scope = serviceProvider.CreateScope())
+        {
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var handler = new AddUserHandler(uow);
+
+            var result = await handler.Handle(
+                new AddUserCommand("new@test.com", "New", "User", "987654321"),
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccess);
+            Assert.NotEqual(Guid.Empty, result.Value.Id.Value);
+
+            var saved = await uow.Users.GetByEmailAsync("new@test.com");
+            Assert.NotNull(saved);
+            Assert.Equal("New", saved.FirstName);
+            Assert.Equal("User", saved.LastName);
+            Assert.Equal("987654321", saved.PhoneNumber);
+        }
+    }
+
+    [Fact]
     public async Task AddUser_ForDuplicateEmail_ReturnsError()
     {
         var dbName = Guid.NewGuid().ToString();
