@@ -17,9 +17,7 @@ public class QueryDispatcherTests
         var expected = new GetEventsResult(new List<EventDto>());
         mediator.Setup(m => m.Send(query, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
 
-        var dispatcherType = typeof(IQueryDispatcher).Assembly
-            .GetType("TicketReservationSystem.Application.Queries.QueryDispatcher")!;
-        var dispatcher = (IQueryDispatcher)Activator.CreateInstance(dispatcherType, mediator.Object)!;
+        var dispatcher = new QueryDispatcher(mediator.Object);
 
         var result = await dispatcher.ExecuteAsync<GetEventsQuery, GetEventsResult>(query, CancellationToken.None);
 

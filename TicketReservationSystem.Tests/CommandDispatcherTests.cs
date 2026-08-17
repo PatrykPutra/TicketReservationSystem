@@ -18,9 +18,7 @@ public class CommandDispatcherTests
         var expected = TicketReservationResult.Success(command.TicketId, TicketStatus.Reserved, DateTime.UtcNow);
         mediator.Setup(m => m.Send(command, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
 
-        var dispatcherType = typeof(ICommandDispatcher).Assembly
-            .GetType("TicketReservationSystem.Application.Commands.CommandDispatcher")!;
-        var dispatcher = (ICommandDispatcher)Activator.CreateInstance(dispatcherType, mediator.Object)!;
+        var dispatcher = new CommandDispatcher(mediator.Object);
 
         var result = await dispatcher.DispatchAsync<TicketReservationCommand, TicketReservationResult>(command, CancellationToken.None);
 

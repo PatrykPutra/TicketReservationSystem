@@ -23,4 +23,8 @@
     <Folder Include="Application\DomainEventHandlers\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="TicketReservationSystem.Tests" />
+  </ItemGroup>
+
 </Project>
