@@ -15,7 +15,7 @@ namespace TicketReservationSystem.Domain.Entities
         public string? ExternalId { get; private set; }
         public PaymentStatus Status { get; private set; }
 
-        public DateTime CreatedAt { get; private set; }
+        public DateTime CreatedAt { get; internal set; }
         public DateTime? ModifiedAt { get; private set; }
         public DateTime? CompletedAt { get; private set; }
 

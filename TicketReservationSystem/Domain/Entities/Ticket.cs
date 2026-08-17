@@ -22,7 +22,7 @@ namespace TicketReservationSystem.Domain.Entities
         public DateTime CreatedAt { get; private set; }
         public DateTime? ModifiedAt { get; private set; }
         public DateTime? ConfirmedAt { get; private set; }
-        public DateTime? ReservedAt { get; private set; }
+        public DateTime? ReservedAt { get; internal set; }
 
         public Ticket(TicketId id, SocialEventId eventId, SocialEvent socialEvent, string seatNumber, Money price) : base(id)
         {
