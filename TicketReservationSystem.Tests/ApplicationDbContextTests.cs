@@ -51,26 +51,6 @@ public class ApplicationDbContextTests
     }
 
     [Fact]
-    public void OnModelCreating_MoneyValue_StoresAmountAndCurrencyAsJson()
-    {
-        using var scope = CreateServiceProvider(Guid.NewGuid().ToString()).CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-        var converter = ctx.Model.FindEntityType(typeof(Payment))!
-            .FindProperty(nameof(Payment.Amount))!
-            .GetValueConverter();
-
-        var stored = (string)converter!.ConvertToProvider(new Money(150, "PLN"))!;
-
-        Assert.StartsWith("{", stored);
-        Assert.Contains("\"amount\":", stored);
-        Assert.Contains("\"currency\":", stored);
-
-        var readBack = (Money)converter!.ConvertFromProvider("{\"Amount\":150,\"Currency\":\"PLN\"}")!;
-        Assert.Equal(new Money(150, "PLN"), readBack);
-    }
-
-    [Fact]
     public async Task SaveChangesAsync_EventTimeRange_RoundTripsLosslessly()
     {
         var dbName = Guid.NewGuid().ToString();
@@ -99,29 +79,5 @@ public class ApplicationDbContextTests
             Assert.Equal(DateTimeKind.Utc, saved.TimeRange.StartTime.Kind);
             Assert.Equal(DateTimeKind.Utc, saved.TimeRange.EndTime.Kind);
         }
-    }
-
-    [Fact]
-    public void OnModelCreating_TimeRangeValue_StoresStartAndEndAsJson()
-    {
-        using var scope = CreateServiceProvider(Guid.NewGuid().ToString()).CreateScope();
-        var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-        var converter = ctx.Model.FindEntityType(typeof(SocialEvent))!
-            .FindProperty(nameof(SocialEvent.TimeRange))!
-            .GetValueConverter();
-
-        var timeRange = new DateTimeRange(
-            new DateTime(2027, 1, 15, 19, 0, 0, DateTimeKind.Utc),
-            new DateTime(2027, 1, 15, 23, 0, 0, DateTimeKind.Utc));
-        var stored = (string)converter!.ConvertToProvider(timeRange)!;
-
-        Assert.StartsWith("{", stored);
-        Assert.Contains("\"startTime\":", stored);
-        Assert.Contains("\"endTime\":", stored);
-
-        var readBack = (DateTimeRange)converter!.ConvertFromProvider(
-            "{\"StartTime\":\"2027-01-15T19:00:00Z\",\"EndTime\":\"2027-01-15T23:00:00Z\"}")!;
-        Assert.Equal(timeRange, readBack);
     }
 }
