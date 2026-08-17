@@ -212,7 +212,7 @@ TicketReservationSystem.slnx
 │     │  ├─ Jobs/                           Quartz cleanup jobs
 │     │  └─ InMemory/                       InMemorySeeder (startup seed data)
 │     └─ DependencyInjection.cs
-└─ TicketReservationSystem.Tests/           xUnit tests (209 [Fact])
+└─ TicketReservationSystem.Tests/           xUnit tests (231 [Fact])
 ```
 
 ---
@@ -265,7 +265,7 @@ Interactive API docs are served at **`/scalar`** (Scalar UI) and **`/openapi/v1.
 
 ## Testing
 
-209 xUnit tests in 40 files cover the behavior-driven layers touched by the architecture:
+231 xUnit tests in 40 files cover the behavior-driven layers touched by the architecture. Unit tests depend on interfaces — `IUnitOfWork` and its repositories, `IEmailSender`, and internal dispatchers are mocked/stubbed (`InternalsVisibleTo` exposes the internals), so no database is touched; EF Core InMemory is reserved for the persistence round-trip tests in `ApplicationDbContextTests`.
 
 - **Controllers** — HTTP status mapping from `Result` failures (Authentication, User, Events, Tickets, Payments, Webhooks).
 - **Command handlers** — add user, authentication code flow, token generation, ticket reserve/cancel, Stripe checkout and webhook processing.
@@ -273,7 +273,7 @@ Interactive API docs are served at **`/scalar`** (Scalar UI) and **`/openapi/v1.
 - **CQRS plumbing & services** — `CommandDispatcher` / `QueryDispatcher` MediatR forwarding, `JwtService` token round-trip (claims, issuer, audience, expiry), `Result` invariant.
 - **Domain aggregates** — ticket reservation/confirmation/state machine, payment lifecycle, invariant guards.
 - **Domain event handlers** — email sent on registration, reservation, confirmation, cancellation, and payment outcomes.
-- **Background jobs** — expired-reservation and expired-payment cleanup with concurrency handling.
+- **Background jobs** — expired-reservation and expired-payment cleanup: the `FindAsync` predicates are captured and evaluated against expired/fresh entities, and a mocked scope factory surfaces a mocked `IUnitOfWork`.
 - **Infrastructure** — EF value‑converter round‑trips (IDs, `Money`, `DateTimeRange`), middleware error wrapping, claim extensions.
 
 Run them with:
