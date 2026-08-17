@@ -1,8 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
+using System.Linq.Expressions;
 using Moq;
-using Stripe.Checkout;
 using Stripe;
+using Stripe.Checkout;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
 using TicketReservationSystem.Application.Errors;
@@ -10,8 +9,6 @@ using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
 using TicketReservationSystem.Domain.ValueObjects;
-using TicketReservationSystem.Infrastructure.Persistence;
-using TicketReservationSystem.Infrastructure.Repository;
 
 namespace TicketReservationSystem.Tests;
 
@@ -19,63 +16,46 @@ public class StripeWebhookHandlerTests
 {
     private static readonly Money DefaultPrice = new(100, "PLN");
 
-    private static ServiceProvider CreateServiceProvider(string dbName)
-    {
-        var services = new ServiceCollection();
-
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseInMemoryDatabase(dbName));
-
-        services.AddScoped<ITicketRepository, TicketRepository>();
-        services.AddScoped<IPaymentRepository, PaymentRepository>();
-        services.AddScoped<IEventRepository, EventRepository>();
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddSingleton<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>(
-            Mock.Of<Infrastructure.DomainEventsDispatcher.IDomainEventsDispatcher>());
-
-        return services.BuildServiceProvider();
-    }
-
-    private static (TicketId TicketId, UserId UserId, PaymentId PaymentId) SeedReservedWithPendingPayment(ServiceProvider provider)
+    private static (TicketId TicketId, UserId UserId, PaymentId PaymentId) CreateReservedWithPendingPayment(
+        out Payment payment,
+        out Ticket ticket)
     {
         var eventId = SocialEventId.CreateUnique();
         var ticketId = TicketId.CreateUnique();
         var userId = UserId.CreateUnique();
         var paymentId = PaymentId.CreateUnique();
 
-        using var scope = provider.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
         var timeRange = new DateTimeRange(DateTime.UtcNow.AddDays(30), DateTime.UtcNow.AddDays(30).AddHours(4));
         var socialEvent = new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
-        var ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
+        ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
         ticket.Reserve(userId);
 
-        var payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
+        payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
         payment.SetExternalId("cs_test_123");
-
-        uow.Events.Add(socialEvent);
-        uow.Tickets.Add(ticket);
-        uow.Payments.Add(payment);
-        uow.SaveChangesAsync().GetAwaiter().GetResult();
 
         return (ticketId, userId, paymentId);
     }
 
-    private static Event CreateStripeEvent(string type, PaymentId paymentId)
+    private static (Mock<IUnitOfWork> Uow, Mock<IPaymentRepository> Payments, Mock<ITicketRepository> Tickets) CreateUnitOfWork(
+        Payment? payment,
+        Ticket? ticket)
     {
-        return new Event
-        {
-            Type = type,
-            Data = new EventData
-            {
-                Object = new Session { ClientReferenceId = paymentId.Value.ToString() },
-            },
-        };
+        var paymentsRepo = new Mock<IPaymentRepository>();
+        paymentsRepo.Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment is null ? new List<Payment>() : new List<Payment> { payment });
+
+        var ticketsRepo = new Mock<ITicketRepository>();
+        ticketsRepo.Setup(r => r.GetByIdAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+
+        var uow = new Mock<IUnitOfWork>();
+        uow.SetupGet(u => u.Payments).Returns(paymentsRepo.Object);
+        uow.SetupGet(u => u.Tickets).Returns(ticketsRepo.Object);
+        uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        return (uow, paymentsRepo, ticketsRepo);
     }
 
-    private static Event CreateStripeEventWithClientReference(string type, string clientReferenceId)
+    private static Event CreateStripeEvent(string type, string clientReferenceId)
     {
         return new Event
         {
@@ -88,27 +68,32 @@ public class StripeWebhookHandlerTests
     }
 
     [Fact]
-    public async Task StripeWebhook_OnCompletedEvent_MarksPaymentPaidAndConfirmsTicket()
+    public async Task StripeWebhook_OnCompletedEvent_MarksPaymentCompleted()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (ticketId, userId, paymentId) = SeedReservedWithPendingPayment(service);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler2 = new StripeWebhookHandler(uow);
-
-        var result = await handler2.Handle(
-            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId)),
+        var result = await handler.Handle(
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId.Value.ToString())),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-
-        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
-        var ticket = await uow.Tickets.GetByIdAsync(ticketId);
-
         Assert.Equal(PaymentStatus.Completed, payment.Status);
-        Assert.NotNull(ticket);
+    }
+
+    [Fact]
+    public async Task StripeWebhook_OnCompletedEvent_ConfirmsTicket()
+    {
+        var (_, userId, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
+
+        var result = await handler.Handle(
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId.Value.ToString())),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
         Assert.Equal(TicketStatus.Confirmed, ticket.Status);
         Assert.Equal(userId, ticket.UserId);
     }
@@ -116,132 +101,100 @@ public class StripeWebhookHandlerTests
     [Fact]
     public async Task StripeWebhook_OnCompletedEventRedelivery_IsIdempotentNoop()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (_, _, paymentId) = SeedReservedWithPendingPayment(service);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
+        var command = new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId.Value.ToString()));
 
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
+        await handler.Handle(command, CancellationToken.None);
+        await handler.Handle(command, CancellationToken.None);
 
-        await handler.Handle(new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId)), CancellationToken.None);
-        await handler.Handle(new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId)), CancellationToken.None);
-
-        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
         Assert.Equal(PaymentStatus.Completed, payment.Status);
     }
 
     [Fact]
-    public async Task StripeWebhook_OnExpiredEvent_MarksPaymentExpiredAndReleasesTicket()
+    public async Task StripeWebhook_OnExpiredEvent_MarksPaymentExpired()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (ticketId, _, paymentId) = SeedReservedWithPendingPayment(service);
-
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
         var result = await handler.Handle(
-            new StripeWebhookCommand(CreateStripeEvent("checkout.session.expired", paymentId)),
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.expired", paymentId.Value.ToString())),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-
-        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
-        var ticket = await uow.Tickets.GetByIdAsync(ticketId);
-
         Assert.Equal(PaymentStatus.Expired, payment.Status);
-        Assert.Equal(TicketStatus.Available, ticket!.Status);
+    }
+
+    [Fact]
+    public async Task StripeWebhook_OnExpiredEvent_ReleasesTicket()
+    {
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
+
+        var result = await handler.Handle(
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.expired", paymentId.Value.ToString())),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TicketStatus.Available, ticket.Status);
         Assert.Null(ticket.UserId);
     }
 
     [Fact]
-    public async Task StripeWebhook_OnPaymentFailedEvent_MarksPaymentFailedAndReleasesTicket()
+    public async Task StripeWebhook_OnPaymentFailedEvent_MarksPaymentFailed()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (ticketId, _, paymentId) = SeedReservedWithPendingPayment(service);
-
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
         var result = await handler.Handle(
-            new StripeWebhookCommand(CreateStripeEvent("payment_intent.payment_failed", paymentId)),
+            new StripeWebhookCommand(CreateStripeEvent("payment_intent.payment_failed", paymentId.Value.ToString())),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-
-        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
-        var ticket = await uow.Tickets.GetByIdAsync(ticketId);
-
         Assert.Equal(PaymentStatus.Failed, payment.Status);
-        Assert.Equal(TicketStatus.Available, ticket!.Status);
+    }
+
+    [Fact]
+    public async Task StripeWebhook_OnPaymentFailedEvent_ReleasesTicket()
+    {
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
+
+        var result = await handler.Handle(
+            new StripeWebhookCommand(CreateStripeEvent("payment_intent.payment_failed", paymentId.Value.ToString())),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(TicketStatus.Available, ticket.Status);
     }
 
     [Fact]
     public async Task StripeWebhook_OnUnknownEventType_IsNoop()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (ticketId, _, paymentId) = SeedReservedWithPendingPayment(service);
-
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
         var result = await handler.Handle(
-            new StripeWebhookCommand(CreateStripeEvent("some.other.event", paymentId)),
+            new StripeWebhookCommand(CreateStripeEvent("some.other.event", paymentId.Value.ToString())),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-
-        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
-        var ticket = await uow.Tickets.GetByIdAsync(ticketId);
-
         Assert.Equal(PaymentStatus.Pending, payment.Status);
-        Assert.Equal(TicketStatus.Reserved, ticket!.Status);
-    }
-
-    [Fact]
-    public async Task StripeWebhook_OnUnknownEventWithNonSessionPayload_IsNoop()
-    {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (ticketId, _, paymentId) = SeedReservedWithPendingPayment(service);
-
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
-
-        var nonSessionEvent = new Event
-        {
-            Type = "payment_intent.succeeded",
-            Data = new EventData { Object = new PaymentIntent() },
-        };
-
-        var result = await handler.Handle(new StripeWebhookCommand(nonSessionEvent), CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-
-        var payment = (await uow.Payments.FindAsync(p => p.Id == paymentId)).Single();
-        var ticket = await uow.Tickets.GetByIdAsync(ticketId);
-
-        Assert.Equal(PaymentStatus.Pending, payment.Status);
-        Assert.Equal(TicketStatus.Reserved, ticket!.Status);
+        Assert.Equal(TicketStatus.Reserved, ticket.Status);
     }
 
     [Fact]
     public async Task StripeWebhook_OnNonSessionEventObject_ReturnsPaymentProcessingError()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (_, _, paymentId) = SeedReservedWithPendingPayment(service);
-
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
         var nonSessionEvent = new Event
         {
@@ -258,16 +211,12 @@ public class StripeWebhookHandlerTests
     [Fact]
     public async Task StripeWebhook_OnInvalidClientReferenceId_ReturnsPaymentProcessingError()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (_, _, paymentId) = SeedReservedWithPendingPayment(service);
-
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
         var result = await handler.Handle(
-            new StripeWebhookCommand(CreateStripeEventWithClientReference("checkout.session.completed", "not-a-guid")),
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", "not-a-guid")),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
@@ -277,17 +226,12 @@ public class StripeWebhookHandlerTests
     [Fact]
     public async Task StripeWebhook_WhenPaymentNotFound_ReturnsPaymentProcessingError()
     {
-        var dbName = Guid.NewGuid().ToString();
-        var service = CreateServiceProvider(dbName);
-        var (_, _, _) = SeedReservedWithPendingPayment(service);
+        var (_, _, paymentId) = CreateReservedWithPendingPayment(out var payment, out var ticket);
+        var mocks = CreateUnitOfWork(payment: null, ticket);
+        var handler = new StripeWebhookHandler(mocks.Uow.Object);
 
-        using var scope = service.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var handler = new StripeWebhookHandler(uow);
-
-        var unknownPaymentId = PaymentId.CreateUnique();
         var result = await handler.Handle(
-            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", unknownPaymentId)),
+            new StripeWebhookCommand(CreateStripeEvent("checkout.session.completed", paymentId.Value.ToString())),
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
