@@ -212,7 +212,7 @@ TicketReservationSystem.slnx
 │     │  ├─ Jobs/                           Quartz cleanup jobs
 │     │  └─ InMemory/                       InMemorySeeder (startup seed data)
 │     └─ DependencyInjection.cs
-└─ TicketReservationSystem.Tests/           xUnit tests (178 [Fact])
+└─ TicketReservationSystem.Tests/           xUnit tests (209 [Fact])
 ```
 
 ---
@@ -265,10 +265,12 @@ Interactive API docs are served at **`/scalar`** (Scalar UI) and **`/openapi/v1.
 
 ## Testing
 
-178 xUnit tests in 28 files cover the behavior-driven layers touched by the architecture:
+209 xUnit tests in 40 files cover the behavior-driven layers touched by the architecture:
 
 - **Controllers** — HTTP status mapping from `Result` failures (Authentication, User, Events, Tickets, Payments, Webhooks).
 - **Command handlers** — add user, authentication code flow, token generation, ticket reserve/cancel, Stripe checkout and webhook processing.
+- **Query handlers** — event, ticket and user read handlers mapping entities to DTOs (found / not-found / empty paths).
+- **CQRS plumbing & services** — `CommandDispatcher` / `QueryDispatcher` MediatR forwarding, `JwtService` token round-trip (claims, issuer, audience, expiry), `Result` invariant.
 - **Domain aggregates** — ticket reservation/confirmation/state machine, payment lifecycle, invariant guards.
 - **Domain event handlers** — email sent on registration, reservation, confirmation, cancellation, and payment outcomes.
 - **Background jobs** — expired-reservation and expired-payment cleanup with concurrency handling.
