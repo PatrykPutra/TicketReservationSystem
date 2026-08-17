@@ -41,7 +41,7 @@ public class ExceptionHandlingMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_WhenNextThrows_Sets500ProblemDetails()
+    public async Task InvokeAsync_WhenNextThrows_Sets500Response()
     {
         var context = new DefaultHttpContext
         {
@@ -53,6 +53,18 @@ public class ExceptionHandlingMiddlewareTests
 
         Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
         Assert.Equal("application/problem+json", context.Response.ContentType);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_WhenNextThrows_WritesProblemDetailsBody()
+    {
+        var context = new DefaultHttpContext
+        {
+            Response = { Body = new MemoryStream() }
+        };
+        var middleware = CreateMiddleware(_ => throw new InvalidOperationException("boom"));
+
+        await middleware.InvokeAsync(context);
 
         context.Response.Body.Seek(0, SeekOrigin.Begin);
         using var reader = new StreamReader(context.Response.Body, leaveOpen: true);

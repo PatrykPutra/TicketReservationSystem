@@ -41,39 +41,66 @@ public class PaymentTests
     }
 
     [Fact]
-    public void MarkCompleted_OnPendingPayment_SetsCompletedAndRaisesEvent()
+    public void MarkCompleted_OnPendingPayment_SetsCompleted()
+    {
+        var payment = CreatePendingPayment();
+
+        payment.MarkCompleted();
+
+        Assert.Equal(PaymentStatus.Completed, payment.Status);
+    }
+
+    [Fact]
+    public void MarkCompleted_OnPendingPayment_RaisesCompletedEvent()
     {
         var payment = CreatePendingPayment();
         var userId = payment.UserId;
 
         payment.MarkCompleted();
 
-        Assert.Equal(PaymentStatus.Completed, payment.Status);
         var domainEvent = payment.DomainEvents.OfType<PaymentCompletedEvent>().Single();
         Assert.Equal(userId, domainEvent.UserId);
         Assert.Equal(payment.Id, domainEvent.PaymentId);
     }
 
     [Fact]
-    public void MarkFailed_OnPendingPayment_SetsFailedAndRaisesEvent()
+    public void MarkFailed_OnPendingPayment_SetsFailed()
     {
         var payment = CreatePendingPayment();
 
         payment.MarkFailed();
 
         Assert.Equal(PaymentStatus.Failed, payment.Status);
+    }
+
+    [Fact]
+    public void MarkFailed_OnPendingPayment_RaisesFailedEvent()
+    {
+        var payment = CreatePendingPayment();
+
+        payment.MarkFailed();
+
         var domainEvent = payment.DomainEvents.OfType<PaymentFailedEvent>().Single();
         Assert.Equal(payment.Id, domainEvent.PaymentId);
     }
 
     [Fact]
-    public void MarkExpired_OnPendingPayment_SetsExpiredAndRaisesEvent()
+    public void MarkExpired_OnPendingPayment_SetsExpired()
     {
         var payment = CreatePendingPayment();
 
         payment.MarkExpired();
 
         Assert.Equal(PaymentStatus.Expired, payment.Status);
+    }
+
+    [Fact]
+    public void MarkExpired_OnPendingPayment_RaisesExpiredEvent()
+    {
+        var payment = CreatePendingPayment();
+
+        payment.MarkExpired();
+
         var domainEvent = payment.DomainEvents.OfType<PaymentExpiredEvent>().Single();
         Assert.Equal(payment.Id, domainEvent.PaymentId);
     }
