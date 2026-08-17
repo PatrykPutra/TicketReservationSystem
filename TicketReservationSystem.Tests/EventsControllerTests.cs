@@ -80,7 +80,7 @@ public class EventsControllerTests
     }
 
     [Fact]
-    public async Task GetEvents_ReturnsOkWithEvents()
+    public async Task GetEvents_ForExistingEvents_ReturnsOkWithEvents()
     {
         var events = new List<EventDto> { CreateEventDto(), CreateEventDto() };
         var controller = CreateController(querySetup: mock =>

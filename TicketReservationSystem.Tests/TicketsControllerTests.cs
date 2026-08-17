@@ -136,7 +136,7 @@ public class TicketsControllerTests
     }
 
     [Fact]
-    public async Task GetTicketByEvent_ReturnsOkWithTickets()
+    public async Task GetTicketByEvent_ForExistingTickets_ReturnsOkWithTickets()
     {
         var tickets = new List<TicketDto>
         {

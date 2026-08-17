@@ -11,7 +11,7 @@
 + Add TicketCanceledEventHandler to send cancellation email to user after ticket cancellation
 + Add PaymentFailedEventHandler to send email to user after payment failure
 + Add PaymentCompletedEventHandler to send email to user after payment completion
-- Correct Tests naming convention to follow the pattern of MethodName_Scenario_ExpectedResult eg. Append_ForTwoStrings_ReturnsConcatenatedString
++ Correct Tests naming convention to follow the pattern of MethodName_Scenario_ExpectedResult eg. Append_ForTwoStrings_ReturnsConcatenatedString
 - Improve tests coverage for whole project
 - Configure endpoint route naming convention to be lowercase
 
