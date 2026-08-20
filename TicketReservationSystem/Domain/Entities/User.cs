@@ -20,8 +20,13 @@
             public DateTime CreatedAt { get; private set; }
             public DateTime LastLoginAt { get; private set; }
 
-            public User(UserId id) : base(id)
+            private User(UserId id, string email, string firstName, string lastName, string phoneNumber) : base(id)
             {
+                Email = email;
+                FirstName = firstName;
+                LastName = lastName;
+                PhoneNumber = phoneNumber;
+                IsActive = true;
                 CreatedAt = DateTime.UtcNow;
             }
 
@@ -35,15 +40,12 @@
                 return IsActive && IsVerified;
             }
 
-            public void Register(string email, string firstName, string lastName, string phoneNumber)
+            public static User Register(string email, string firstName, string lastName, string phoneNumber)
             {
-                Email = email;
-                FirstName = firstName;
-                LastName = lastName;
-                PhoneNumber = phoneNumber;
-                IsActive = true;
-
-                AddDomainEvent(new UserRegisteredEvent(Id, email));
+                UserId id = UserId.CreateUnique();
+                User user = new User(id, email, firstName, lastName, phoneNumber);
+                user.AddDomainEvent(new UserRegisteredEvent(id, email));
+                return user;
             }
 
             public void VerifyEmail()

@@ -15,3 +15,145 @@
 - Improve tests coverage for whole project
 - Configure endpoint route naming convention to be lowercase
 
+Tests refactoring:
+- Variable names should be expressive and self-explanatory, don’t use acronyms or half words
+AddUserHandlerTests:
++ remove helper methods and make tests self-arranged
++ Incorrect method naming: use Handle instead AddUser
++ incorrect variable naming: use unitOfWorkMock instead mock
++ Add test scenario for invalid email returns error
+ApplicationDbContextTests:
+- Verify IDomainEventsDispatcher namespace
+- Incorrect variable naming: ctx
+- Change name SaveChangesAsync_PaymentMoney_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesPaymentWithoutLoss
+- Change name SaveChangesAsync_EventTimeRange_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesEventWithoutLoss
+- Split SaveChangesAsync_EventTimeRange_RoundTripsLosslessly test into two separate scenarios:
+1 Assert.Equal(timeRange, saved.TimeRange);
+2 Assert.Equal(DateTimeKind.Utc, saved.TimeRange.StartTime.Kind); Assert.Equal(DateTimeKind.Utc, saved.TimeRange.EndTime.Kind);
+- Add test scenarios for other entities to check if they are saved without loss
+AuthenticationControllerTests:
+- Change name SendCode_WhenUserNotFound_ReturnsNotFound to SendCode_ForNotRegisteredUser_ReturnsNotFound
+- Add test scenario to check response code for InvalidCredentialsError (should not be 500)
+- Change test scenario SendCode_WhenUnexpectedError_Returns500 to not check against InvalidCredentialsError
+- Change name: SendCode_WhenUnexpectedError_Returns500 to SendCode_ForUnexpectedError_Returns500
+- Change test scenario Token_ForValidCode_ReturnsOkWithTokenAndExpiry to Token_ForValidCode_ReturnsOK (don’t check token value and expiry)
+AuthenticationHandlerTests:
+- Change name SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to SendAuthenticationCode_ForRateLimitedRequest_ReturnsRateLimited
+- Correct test scenario for SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to enforce RateLimitedWindow 60 sec
+- Rename GenerateToken_ForValidCode_ReturnsTokenWithExpiry to GenerateToken_ForValidCode_ReturnsSuccessResultWithValidToken
+- Change name GenerateToken_ForValidCode_MarksCodeUsed to GenerateToken_ForValidCode_MarksCodeAsUsed
+- Verify what is going on in GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
+- Verify what is going on in GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup
+CreateCheckoutHandlerTests:
+- get rid of helper methods, make every test arrange test scenario on its own
+- divide into two test scenarios CreateCheckout_ForReservedTicket_AddsPendingPaymentWithExternalId()
+- change name CreateCheckout_OnCurrencyMismatch_PropagatesError() to CreateCheckout_ForCurrencyMismatch_ReturnsFailedResultWithCurrencyMismatchError
+EventDtoTests:
+- change to single assertion since EventDto is a record it can be compared by default
+EventsController:
+- divide GetEventById_WhenEventFound_ReturnsOk into two test scenarios first to check response code and second to check dto value
+- change name GetEventById_WhenEventMissing_ReturnsNotFound() to GetEventById_ForNotRegisteredEvent_ReturnsNotFound
+- divide GetEvents_ForExistingEvents_ReturnsOkWithEvents() into two test scenarios first to check response code and second to check dto values
+ExpiredPaymentCleanupJobTests:
+- get rid of helper methods and make tests to arrange test scenario individualy
+- redesign Execute_FilterPredicate_SelectsStalePendingAndExcludesFreshAndNonPending() to be case not fact
+- what is going on with this test scenario Execute_ForStalePayment_WhenTicketMissing_StillMarksExpired()
+ExpiredReservationsCleanupJobTests:
+- get rid of helper methods and make test self-arranged
+- divide Execute_FilterPredicate_SelectsExpiredReservedAndExcludesFreshAndAvailable into separate scenarios
+- divide Execute_ForExpiredReservation_ReleasesTicket into separate scenarios
+- change name Execute_WithPendingPayment_SkipsTicket to Execute_ForTicketWithPendingPayment_PersistsTicketReservation
+TicketReservationSystem:
+- get rid of helper method and make tests self-arranged
+- change name GetEventById_ForExistingEvent_ReturnsMappedDto to GetEventById_ForExistingEvent_ReturnsEventDto
+TicketReservationSystem:
+- change name GetTicketById_ForExistingTicket_ReturnsMappedDto to GetTicketById_ForExistingTicket_ReturnsTicketDto
+JwtServiceTests:
+- change magic numbers into constants
+- divide GenerateToken_ForValidInputs_SetsIssuerAndAudience into two separate scenarios
+PaymentCompletedEventHandlerTests:
+- get rid of helper methods and make tests self-arranged
+- adjust naming PaymentCompleted_WhenUserMissing_DoesNothing()
+- adjust naming PaymentCompleted_WhenSenderThrows_SwallowsException
+- verify test scenario of PaymentCompleted_WhenSenderThrows_SwallowsException
+PaymentFailedEventHandlerTests:
+- get rid of helper methods and make tests self-arranged
+- adjust naming PaymentFailed_WhenUserMissing_DoesNothing
+- adjust naming PaymentFailed_WhenSenderThrows_SwallowsException
+- verify logic PaymentFailed_WhenSenderThrows_SwallowsException
+PaymentTests:
+- get rid of helper methods and make tests self-arranged
+- divide Payment_ForValidInputs_IsPendingWithSnapshot into separate scenarios
+PaymentsControllerTests:
+- get rid of helper methods and make tests self-arranged
+- change naming, replace when with for
+QueryDispatcherTests:
+- divide ExecuteAsync_ForQuery_ForwardsToMediatorAndReturnsResult into two separate scenarios
+SendAuthenticationCodeEmailHandlerTests:
+- change name SendAuthenticationCodeEmail_ForCodeEvent_SendsCodeEmail to SendAuthenticationCodeEmail_ForAuthenticationCodeGeneratedEvent_SendsEmail
+- adjust naming SendAuthenticationCodeEmail_WhenSenderThrows_SwallowsException to SendAuthenticationCodeEmail_WhenSenderThrows_HandlesException
+StripePaymentsServiceTests:
+- get rid of helper methods and make tests self-arranged
+- add more cases to CreateCheckoutSessionAsync_ForZeroDecimalCurrency_UsesDivisor1
+- add more cases to CreateCheckoutSessionAsync_ForTwoDecimalCurrency_UsesDivisor100
+StripeWebhookHandlerTests:
+- get rid of helper methods and make tests self-arranged
+TicketCancelationHandlerTests:
+- get rid of helper method and make tests self-arranged
+- divide TicketCancelation_ForOwnedTicket_CancelsAndReturnsSuccess int separate scenarios
+TicketCanceledEventHandlerTests
+- get rid of helper methods and make tests self-arranged
+- change name TicketCanceled_WhenUserMissing_DoesNothing to TicketCanceled_WhenUserMissing_DoesNotSendEmail
+- change name TicketCanceled_WhenSenderThrows_SwallowsException to TicketCanceled_WhenSenderThrows_HandlesException
+TicketConfirmedEventHandlerTests:
+- get rid of helper methods and make tests self-arranged
+- change name TicketConfirmed_WhenTicketMissing_DoesNothing to TicketConfirmed_WhenTicketMissing_DoesNotSendEmail
+- change name TicketConfirmed_WhenSenderThrows_SwallowsException to TicketConfirmed_WhenSenderThrows_HandlesException
+TicketDtoTests:
+- change TicketDto_ForValidInputs_ExposesAllFields to single assertion
+TicketReleaseReservationTests:
+- get rid of helper methods and make tests self-arranged
+- change name ReleaseReservation_OnAvailableTicket_Throws to ReleaseReservation_ForAvailableTicketReleaseRequest_ThrowsTicketStatusException
+- change name ReleaseReservation_OnConfirmedTicket_Throws to ReleaseReservation_ForConfirmedTicketReleaseRequest_ ThrowsTicketStatusException
+TicketReleasedEventHandlerTests:
+- get rid of helper methods and make tests self-arranged
+- change name TicketReleased_WhenUserMissing_DoesNothing to TicketReleased_WhenUserMissing_DoesNotSendEmail
+- change name TicketReleased_WhenSenderThrows_SwallowsException to TicketReleased_WhenSenderThrows_HandlesException
+TicketReservationHandlerTests:
+- divide TicketReservation_ForAvailableTicket_ReservesAndReturnsSuccess into separate scenarios
+TicketReservedEventHandlerTests:
+- get rid of helper methods and make tests self-arranged
+- change name TicketReserved_WhenUserMissing_DoesNothing to TicketReserved_WhenUserMissing_DoesNotSendEmail
+- change name TicketReserved_WhenSenderThrows_SwallowsException to TicketReserved_WhenSenderThrows_HandlesException
+TicketsControllerTests:
+- get rid of helper methods and make tests self-arranged
+- change name GetTicketById_HasAllowAnonymousAttribute_ReturnsTrue to GetTicketById_Documentation_ContainsAllowAnonymousAttribute
+- change name GetTicketByEvent_HasAllowAnonymousAttribute_ReturnsTrue to GetTicketByEvent_Documentation_ContainsAllowAnonymousAttribute
+- change name Reserve_HasNoAllowAnonymousAttribute_ReturnsTrue to Reserve_Documentation_NotContainAllowAnonymousAttribute
+- change name Cancel_HasNoAllowAnonymousAttribute_ReturnsTrue to Cancel_Documentation_NotContainAllowAnonymousAttribute
+- change name Reserve_WhenAllMatch_ReturnsOk to Reserve_ForValidInput_ReturnsOk
+- change name Cancel_WhenClaimMissing_ReturnsUnauthorized
+- change name Cancel_WhenClaimMalformed_ReturnsUnauthorized
+- change name Cancel_WhenAllMatch_ReturnsOk
+- change name Reserve_WhenNotFoundError_ReturnsNotFound to Reserve_ForNotFoundErrorResult_ReturnsNotFound
+- change name Reserve_WhenUnexpectedError_Returns500 to Reserve_ForUnexpectedErrorResult_Returns500
+UserControllerTests:
+- get rid of helper methods and make tests self-arranged
+- change name GetUser_WhenClaimMissing_ReturnsUnauthorized
+- change name GetUser_WhenUserIdMatchesAndUserFound_ReturnsOk to GetUser_ForValidInput_ReturnsOk
+- change name GetUser_WhenUserIdMatchesAndUserMissing_ReturnsNotFound to GetUser_ForNotFoundUser_ReturnsNotFound
+- change name AddUser_WhenUnexpectedError_Returns500 to AddUser_ForUnexpectedErrorResult_Returns500
+- change name AddUser_WhenNotFoundError_ReturnsNotFound to AddUser_ForNotFoundErrorResult_ReturnsNotFound
+- change name AddUser_WhenCurrencyMismatchError_ReturnsBadRequest to AddUser_ForCurrencyMismatchErrorResult_ReturnsBadRequest
+UserDtoTests:
+- change to single assertion
+UserRegistrationEventHandlerTests:
+- get rid of helper methods and make tests self-arranged
+- change name UserRegistered_ForNewUser_SendsWelcomeEmail to UserRegistered_ForUserRegisteredEventRaised_SendsWelcomeEmail
+- change name UserRegistered_ForUserRegisteredEventRaised_SendsWelcomeEmailWithExpectedSubject
+- change name UserRegistered_ForUserRegisteredEventRaised_SendsWelcomeEmailWithWelcomeBody
+- change name UserRegistered_WhenSenderThrows_SwallowsException to UserRegistered_WhenSenderThrows_HandlesException
+WebhooksControllerTests:
+- add test scenario StripeWebhook_WhenSignatureMissing_DoesNotProcessRequest
+- add test scenario StripeWebhook_WhenSignatureInvalid_DoesNotProcessRequest
+- change name StripeWebhook_WhenCommandFails_Returns500 to StripeWebhook_ForFailedResult_Returns500

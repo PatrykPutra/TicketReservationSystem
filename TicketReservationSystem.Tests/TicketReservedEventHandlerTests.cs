@@ -28,8 +28,7 @@ public class TicketReservedEventHandlerTests
         var socialEvent = new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
         ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
         ticket.Reserve(userId);
-        user = new User(userId);
-        user.Register("user@test.com", "Test", "User", "123456789");
+        user = User.Register("user@test.com", "Test", "User", "123456789");
 
         return (eventId, ticketId, userId);
     }

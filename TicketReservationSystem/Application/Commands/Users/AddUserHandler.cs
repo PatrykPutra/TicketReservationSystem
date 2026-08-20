@@ -1,3 +1,5 @@
+using Microsoft.Extensions.FileSystemGlobbing.Internal;
+using System.Text.RegularExpressions;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
@@ -17,21 +19,21 @@ namespace TicketReservationSystem.Application.Commands.Users
 
         public async Task<AddUserResult> Handle(AddUserCommand request, CancellationToken cancellationToken)
         {
+            if(!Regex.IsMatch(request.Email, @"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"))
+                return new AddUserResult(new ValidationError($"{request.Email} is invalid email format"));
+
             var existing = await _unitOfWork.Users.GetByEmailAsync(request.Email, cancellationToken);
 
             if (existing is not null)
                 return new AddUserResult(new UserAlreadyExistsError($"User with email {request.Email} already exists"));
 
-            var userId = UserId.CreateUnique();
-            var user = new User(userId);
-
-            user.Register(request.Email, request.FirstName, request.LastName, request.PhoneNumber);
+            User user = User.Register(request.Email, request.FirstName, request.LastName, request.PhoneNumber);
 
             _unitOfWork.Users.Add(user);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            return AddUserResult.Success(userId);
+            return AddUserResult.Success(user.Id);
         }
     }
 }

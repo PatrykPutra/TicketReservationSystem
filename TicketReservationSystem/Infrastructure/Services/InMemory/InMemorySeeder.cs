@@ -44,9 +44,7 @@ public class InMemorySeeder
             _unitOfWork.Tickets.Add(ticket);
         }
 
-        var userId = UserId.CreateUnique();
-        var user = new User(userId);
-        user.Register("putryko@gmail.com", "Jan", "Kowalski", "123456789");
+        var user = User.Register("putryko@gmail.com", "Jan", "Kowalski", "123456789");
         _unitOfWork.Users.Add(user);
 
         await _unitOfWork.SaveChangesAsync();

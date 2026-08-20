@@ -17,10 +17,9 @@ public class AuthenticationHandlerTests
         Mock<IUserRepository> Users,
         Mock<IVerificationCodeRepository> Codes);
 
-    private static User CreateUser(UserId userId)
+    private static User CreateUser()
     {
-        var user = new User(userId);
-        user.Register("test@test.com", "Test", "User", "123456789");
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
         return user;
     }
 
@@ -54,7 +53,7 @@ public class AuthenticationHandlerTests
     public async Task SendAuthenticationCode_ForExistingUser_ReturnsSuccess()
     {
         var userId = UserId.CreateUnique();
-        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var mocks = CreateUnitOfWork(CreateUser());
         var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
         var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
@@ -65,8 +64,8 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task SendAuthenticationCode_ForExistingUser_AddsVerificationCode()
     {
-        var userId = UserId.CreateUnique();
-        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var user = CreateUser();
+        var mocks = CreateUnitOfWork(user);
         var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
         VerificationCode? captured = null;
@@ -76,7 +75,7 @@ public class AuthenticationHandlerTests
         await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
 
         Assert.NotNull(captured);
-        Assert.Equal(userId, captured!.UserId);
+        Assert.Equal(user.Id, captured!.UserId);
         Assert.False(captured.IsUsed);
         Assert.True(captured.ExpiresAt > DateTime.UtcNow);
     }
@@ -84,8 +83,8 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task SendAuthenticationCode_ForExistingUser_SavesChanges()
     {
-        var userId = UserId.CreateUnique();
-        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var user = CreateUser();
+        var mocks = CreateUnitOfWork(user);
         var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
         await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
@@ -108,9 +107,9 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited()
     {
-        var userId = UserId.CreateUnique();
-        var recentCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        var mocks = CreateUnitOfWork(CreateUser(userId), new List<VerificationCode> { recentCode });
+        var user = CreateUser();
+        var recentCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var mocks = CreateUnitOfWork(user, new List<VerificationCode> { recentCode });
         var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
 
         var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
@@ -122,10 +121,10 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task GenerateToken_ForValidCode_ReturnsTokenWithExpiry()
     {
-        var userId = UserId.CreateUnique();
-        var validCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        var mocks = CreateUnitOfWork(CreateUser(userId), new List<VerificationCode> { validCode });
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(userId).Object);
+        var user = CreateUser();
+        var validCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var mocks = CreateUnitOfWork(user, new List<VerificationCode> { validCode });
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(user.Id).Object);
 
         var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
 
@@ -137,10 +136,10 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task GenerateToken_ForValidCode_MarksCodeUsed()
     {
-        var userId = UserId.CreateUnique();
-        var validCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        var mocks = CreateUnitOfWork(CreateUser(userId), new List<VerificationCode> { validCode });
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(userId).Object);
+        var user = CreateUser();
+        var validCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var mocks = CreateUnitOfWork(user, new List<VerificationCode> { validCode });
+        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(user.Id).Object);
 
         await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
 
@@ -162,8 +161,8 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task GenerateToken_ForInvalidCode_ReturnsInvalidCredentials()
     {
-        var userId = UserId.CreateUnique();
-        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var user = CreateUser();
+        var mocks = CreateUnitOfWork(user);
         var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
 
         var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "000000"), CancellationToken.None);
@@ -175,10 +174,10 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
     {
-        var userId = UserId.CreateUnique();
-        var usedCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
+        var user = CreateUser();
+        var usedCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
         usedCode.MarkAsUsed();
-        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var mocks = CreateUnitOfWork(user);
         var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
 
         Expression<Func<VerificationCode, bool>>? predicate = null;
@@ -196,9 +195,9 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup()
     {
-        var userId = UserId.CreateUnique();
-        var expiredCode = VerificationCode.Generate(userId, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
-        var mocks = CreateUnitOfWork(CreateUser(userId));
+        var user = CreateUser();
+        var expiredCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
+        var mocks = CreateUnitOfWork(user);
         var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
 
         Expression<Func<VerificationCode, bool>>? predicate = null;

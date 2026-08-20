@@ -12,8 +12,7 @@ public class GetUserHandlerTests
     [Fact]
     public async Task GetUser_WhenQueryByEmail_ReturnsMappedDto()
     {
-        var userId = UserId.CreateUnique();
-        var user = CreateUser(userId);
+        var user = CreateUser();
 
         var usersRepo = new Mock<IUserRepository>();
         usersRepo.Setup(r => r.GetByEmailAsync("user@test.com", It.IsAny<CancellationToken>()))
@@ -26,18 +25,17 @@ public class GetUserHandlerTests
 
         var result = await handler.Handle(new GetUserQuery(email: "user@test.com"), CancellationToken.None);
 
-        var expected = new UserDto(userId, "user@test.com", "Jan", "Kowalski", "123456789", false);
+        var expected = new UserDto(user.Id, "user@test.com", "Jan", "Kowalski", "123456789", false);
         Assert.Equal(expected, result.User);
     }
 
     [Fact]
     public async Task GetUser_WhenQueryById_ReturnsMappedDto()
     {
-        var userId = UserId.CreateUnique();
-        var user = CreateUser(userId);
+        var user = CreateUser();
 
         var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+        usersRepo.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
         var uow = new Mock<IUnitOfWork>();
@@ -45,9 +43,9 @@ public class GetUserHandlerTests
 
         var handler = new GetUserHandler(uow.Object);
 
-        var result = await handler.Handle(new GetUserQuery(userId: userId), CancellationToken.None);
+        var result = await handler.Handle(new GetUserQuery(userId: user.Id), CancellationToken.None);
 
-        var expected = new UserDto(userId, "user@test.com", "Jan", "Kowalski", "123456789", false);
+        var expected = new UserDto(user.Id, "user@test.com", "Jan", "Kowalski", "123456789", false);
         Assert.Equal(expected, result.User);
     }
 
@@ -84,10 +82,9 @@ public class GetUserHandlerTests
         usersRepo.Verify(r => r.GetByIdAsync(It.IsAny<UserId>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static User CreateUser(UserId userId)
+    private static User CreateUser()
     {
-        var user = new User(userId);
-        user.Register("user@test.com", "Jan", "Kowalski", "123456789");
+        var user = User.Register("user@test.com", "Jan", "Kowalski", "123456789");
         return user;
     }
 }

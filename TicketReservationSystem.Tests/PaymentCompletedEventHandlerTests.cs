@@ -31,8 +31,7 @@ public class PaymentCompletedEventHandlerTests
         ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
         payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
         payment.MarkCompleted();
-        user = new User(userId);
-        user.Register("user@test.com", "Test", "User", "123456789");
+        user = User.Register("user@test.com", "Test", "User", "123456789");
 
         return (paymentId, ticketId, userId);
     }
