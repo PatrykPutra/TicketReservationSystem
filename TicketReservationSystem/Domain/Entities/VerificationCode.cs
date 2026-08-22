@@ -12,8 +12,12 @@ namespace TicketReservationSystem.Domain.Entities
         public bool IsUsed { get; private set; }
         public DateTime CreatedAt { get; private set; }
 
-        public VerificationCode(VerificationCodeId id) : base(id)
+        private VerificationCode(VerificationCodeId id, UserId userId, string code, DateTime expiresAt) : base(id)
         {
+            UserId = userId;
+            Code = code;
+            ExpiresAt = expiresAt;
+            IsUsed = false;
             CreatedAt = DateTime.UtcNow;
         }
 
@@ -24,16 +28,10 @@ namespace TicketReservationSystem.Domain.Entities
         public static VerificationCode Generate(UserId userId, string email, string code, DateTime expiresAt)
         {
             var id = VerificationCodeId.CreateUnique();
-            var entity = new VerificationCode(id)
-            {
-                UserId = userId,
-                Code = code,
-                ExpiresAt = expiresAt,
-            };
+            VerificationCode verificationCode = new VerificationCode(id, userId, code, expiresAt);
+            verificationCode.AddDomainEvent(new AuthenticationCodeGeneratedEvent(verificationCode.UserId, email, verificationCode.Code, verificationCode.ExpiresAt));
 
-            entity.AddDomainEvent(new AuthenticationCodeGeneratedEvent(userId, email, code, expiresAt));
-
-            return entity;
+            return verificationCode;
         }
 
         public void MarkAsUsed()

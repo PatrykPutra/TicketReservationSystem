@@ -1,10 +1,8 @@
 ﻿namespace TicketReservationSystem.Domain.Entities
 {
     using TicketReservationSystem.Domain.Events;
-    using TicketReservationSystem.Domain.Exceptions;
     using TicketReservationSystem.Domain.Ids;
     using TicketReservationSystem.Domain.Primitives;
-    using TicketReservationSystem.Domain.ValueObjects;
 
         public class User : AggregateRoot<UserId>
         {

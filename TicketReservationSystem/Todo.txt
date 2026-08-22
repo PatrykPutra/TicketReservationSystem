@@ -23,14 +23,11 @@ AddUserHandlerTests:
 + incorrect variable naming: use unitOfWorkMock instead mock
 + Add test scenario for invalid email returns error
 ApplicationDbContextTests:
-- Verify IDomainEventsDispatcher namespace
-- Incorrect variable naming: ctx
-- Change name SaveChangesAsync_PaymentMoney_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesPaymentWithoutLoss
-- Change name SaveChangesAsync_EventTimeRange_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesEventWithoutLoss
-- Split SaveChangesAsync_EventTimeRange_RoundTripsLosslessly test into two separate scenarios:
-1 Assert.Equal(timeRange, saved.TimeRange);
-2 Assert.Equal(DateTimeKind.Utc, saved.TimeRange.StartTime.Kind); Assert.Equal(DateTimeKind.Utc, saved.TimeRange.EndTime.Kind);
-- Add test scenarios for other entities to check if they are saved without loss
++ Verify IDomainEventsDispatcher namespace
++ Incorrect variable naming: ctx
++ Change name SaveChangesAsync_PaymentMoney_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesPaymentWithoutLoss
++ Change name SaveChangesAsync_EventTimeRange_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesEventWithoutLoss
++ Add test scenarios for other entities to check if they are saved without loss
 AuthenticationControllerTests:
 - Change name SendCode_WhenUserNotFound_ReturnsNotFound to SendCode_ForNotRegisteredUser_ReturnsNotFound
 - Add test scenario to check response code for InvalidCredentialsError (should not be 500)

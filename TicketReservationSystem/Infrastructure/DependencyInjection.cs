@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Quartz;
 using TicketReservationSystem.Domain.Events;
 using TicketReservationSystem.Domain.Repositories;
@@ -78,7 +77,7 @@ public static class DependencyInjection
         services.AddScoped<IDomainEventHandler<PaymentCompletedEvent>, PaymentCompletedEventHandler>();
 
         services.Configure<StripeSettings>(configuration.GetSection(StripeSettings.SectionName));
-        services.AddScoped<Application.Abstractions.IPaymentsService, StripePaymentsService>();
+        services.AddScoped<IPaymentsService, StripePaymentsService>();
 
         return services;
     }
