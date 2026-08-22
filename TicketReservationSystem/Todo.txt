@@ -29,11 +29,9 @@ ApplicationDbContextTests:
 + Change name SaveChangesAsync_EventTimeRange_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesEventWithoutLoss
 + Add test scenarios for other entities to check if they are saved without loss
 AuthenticationControllerTests:
-- Change name SendCode_WhenUserNotFound_ReturnsNotFound to SendCode_ForNotRegisteredUser_ReturnsNotFound
-- Add test scenario to check response code for InvalidCredentialsError (should not be 500)
-- Change test scenario SendCode_WhenUnexpectedError_Returns500 to not check against InvalidCredentialsError
-- Change name: SendCode_WhenUnexpectedError_Returns500 to SendCode_ForUnexpectedError_Returns500
-- Change test scenario Token_ForValidCode_ReturnsOkWithTokenAndExpiry to Token_ForValidCode_ReturnsOK (don’t check token value and expiry)
++ Change name SendCode_WhenUserNotFound_ReturnsNotFound to SendCode_ForNotRegisteredUser_ReturnsNotFound
++ Change test scenario SendCode_WhenUnexpectedError_Returns500 to not check against InvalidCredentialsError
++ Change name: SendCode_WhenUnexpectedError_Returns500 to SendCode_ForUnexpectedError_Returns500
 AuthenticationHandlerTests:
 - Change name SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to SendAuthenticationCode_ForRateLimitedRequest_ReturnsRateLimited
 - Correct test scenario for SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to enforce RateLimitedWindow 60 sec
