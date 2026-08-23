@@ -40,7 +40,7 @@ AuthenticationHandlerTests:
 + Verify what is going on in GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
 + Verify what is going on in GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup
 CreateCheckoutHandlerTests:
-- get rid of helper methods, make every test arrange test scenario on its own
++ get rid of helper methods, make every test arrange test scenario on its own
 - divide into two test scenarios CreateCheckout_ForReservedTicket_AddsPendingPaymentWithExternalId()
 - change name CreateCheckout_OnCurrencyMismatch_PropagatesError() to CreateCheckout_ForCurrencyMismatch_ReturnsFailedResultWithCurrencyMismatchError
 EventDtoTests:

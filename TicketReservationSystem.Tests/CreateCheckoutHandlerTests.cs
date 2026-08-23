@@ -160,7 +160,7 @@ public class CreateCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task CreateCheckout_ForMissingTicket_ReturnsNotFound()
+    public async Task CreateCheckout_ForMissingTicket_ReturnsNotFoundErrorResult()
     {
         // Arrange
         Ticket? ticket = default;
@@ -191,7 +191,7 @@ public class CreateCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task CreateCheckout_ForUnreservedTicket_ReturnsNotReservedError()
+    public async Task CreateCheckout_ForUnreservedTicket_ReturnsNotReservedErrorResult()
     {
         // Arrange
         var userId = UserId.CreateUnique();
@@ -223,7 +223,7 @@ public class CreateCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task CreateCheckout_WhenActivePaymentExists_ReturnsDuplicateError()
+    public async Task CreateCheckout_WhenActivePaymentExists_ReturnsDuplicateErrorResult()
     {
         // Arrange
         var userId = UserId.CreateUnique();
@@ -256,7 +256,7 @@ public class CreateCheckoutHandlerTests
     }
 
     [Fact]
-    public async Task CreateCheckout_OnCurrencyMismatch_PropagatesError()
+    public async Task CreateCheckout_ForCurrencyMismatch_ReturnsFailedResultWithCurrencyMismatchError()
     {
         // Arrange
         var userId = UserId.CreateUnique();
