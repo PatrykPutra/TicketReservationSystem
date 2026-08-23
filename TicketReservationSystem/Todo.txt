@@ -33,12 +33,12 @@ AuthenticationControllerTests:
 + Change test scenario SendCode_WhenUnexpectedError_Returns500 to not check against InvalidCredentialsError
 + Change name: SendCode_WhenUnexpectedError_Returns500 to SendCode_ForUnexpectedError_Returns500
 AuthenticationHandlerTests:
-- Change name SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to SendAuthenticationCode_ForRateLimitedRequest_ReturnsRateLimited
++ Change name SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to SendAuthenticationCode_ForRateLimitedRequest_ReturnsRateLimited
 - Correct test scenario for SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to enforce RateLimitedWindow 60 sec
-- Rename GenerateToken_ForValidCode_ReturnsTokenWithExpiry to GenerateToken_ForValidCode_ReturnsSuccessResultWithValidToken
-- Change name GenerateToken_ForValidCode_MarksCodeUsed to GenerateToken_ForValidCode_MarksCodeAsUsed
-- Verify what is going on in GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
-- Verify what is going on in GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup
++ Rename GenerateToken_ForValidCode_ReturnsTokenWithExpiry to GenerateToken_ForValidCode_ReturnsSuccessResultWithValidToken
++ Change name GenerateToken_ForValidCode_MarksCodeUsed to GenerateToken_ForValidCode_MarksCodeAsUsed
++ Verify what is going on in GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
++ Verify what is going on in GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup
 CreateCheckoutHandlerTests:
 - get rid of helper methods, make every test arrange test scenario on its own
 - divide into two test scenarios CreateCheckout_ForReservedTicket_AddsPendingPaymentWithExternalId()

@@ -4,50 +4,12 @@ using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Application.Commands.Authentication;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
-using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
 
 namespace TicketReservationSystem.Tests;
 
 public class AuthenticationHandlerTests
 {
-    private sealed record UnitOfWorkMocks(
-        Mock<IUnitOfWork> Uow,
-        Mock<IUserRepository> Users,
-        Mock<IVerificationCodeRepository> Codes);
-
-    private static User CreateUser()
-    {
-        var user = User.Register("test@test.com", "Test", "User", "123456789");
-        return user;
-    }
-
-    private static UnitOfWorkMocks CreateUnitOfWork(
-        User? user,
-        List<VerificationCode>? codes = null)
-    {
-        var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        var codesRepo = new Mock<IVerificationCodeRepository>();
-        codesRepo.Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(codes ?? new List<VerificationCode>());
-
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
-        uow.SetupGet(u => u.VerificationCodes).Returns(codesRepo.Object);
-        uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        return new UnitOfWorkMocks(uow, usersRepo, codesRepo);
-    }
-
-    private static Mock<IJwtService> CreateJwtService(UserId userId)
-    {
-        var jwtService = new Mock<IJwtService>();
-        jwtService.Setup(s => s.GenerateToken(userId, "test@test.com")).Returns("test-token");
-        return jwtService;
-    }
-
     [Fact]
     public async Task SendAuthenticationCode_ForExistingUser_ReturnsSuccess()
     {
