@@ -1,6 +1,5 @@
 using System.Linq.Expressions;
 using Moq;
-using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Application.Commands.Authentication;
 using TicketReservationSystem.Application.Errors;
@@ -52,163 +51,509 @@ public class AuthenticationHandlerTests
     [Fact]
     public async Task SendAuthenticationCode_ForExistingUser_ReturnsSuccess()
     {
-        var userId = UserId.CreateUnique();
-        var mocks = CreateUnitOfWork(CreateUser());
-        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+        
+        // Act
+        var result = await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+
+        // Assert
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
     public async Task SendAuthenticationCode_ForExistingUser_AddsVerificationCode()
     {
-        var user = CreateUser();
-        var mocks = CreateUnitOfWork(user);
-        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        VerificationCode? captured = null;
-        mocks.Codes.Setup(r => r.Add(It.IsAny<VerificationCode>()))
-            .Callback<VerificationCode>(code => captured = code);
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+        
+        VerificationCode? capturedCode = null;
+        verificationCodesRepositoryMock.Setup(r => r.Add(It.IsAny<VerificationCode>()))
+            .Callback<VerificationCode>(addedCode => capturedCode = addedCode);
 
-        Assert.NotNull(captured);
-        Assert.Equal(user.Id, captured!.UserId);
-        Assert.False(captured.IsUsed);
-        Assert.True(captured.ExpiresAt > DateTime.UtcNow);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+        
+        // Act
+        await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedCode);
+    }
+
+    [Fact]
+    public async Task SendAuthenticationCode_ForExistingUser_AddsVerificationCodeWithCorrectUserId()
+    {
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
+
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        VerificationCode? capturedCode = null;
+        verificationCodesRepositoryMock.Setup(r => r.Add(It.IsAny<VerificationCode>()))
+            .Callback<VerificationCode>(addedCode => capturedCode = addedCode);
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+
+        // Act
+        await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedCode);
+        Assert.Equal(user.Id, capturedCode.UserId);
+    }
+
+    [Fact]
+    public async Task SendAuthenticationCode_ForExistingUser_AddsVerificationCodeWithValidExpiryDate()
+    {
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
+
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        VerificationCode? capturedCode = null;
+        verificationCodesRepositoryMock.Setup(r => r.Add(It.IsAny<VerificationCode>()))
+            .Callback<VerificationCode>(addedCode => capturedCode = addedCode);
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+
+        // Act
+        await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedCode);
+        Assert.True(capturedCode.ExpiresAt > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task SendAuthenticationCode_ForExistingUser_AddsNotUsedVerificationCode()
+    {
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
+
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        VerificationCode? capturedCode = null;
+        verificationCodesRepositoryMock.Setup(r => r.Add(It.IsAny<VerificationCode>()))
+            .Callback<VerificationCode>(addedCode => capturedCode = addedCode);
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+
+        // Act
+        await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedCode);
+        Assert.False(capturedCode.IsUsed);
     }
 
     [Fact]
     public async Task SendAuthenticationCode_ForExistingUser_SavesChanges()
     {
-        var user = CreateUser();
-        var mocks = CreateUnitOfWork(user);
-        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        mocks.Uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+
+        // Assert
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task SendAuthenticationCode_ForUnknownUser_ReturnsUserNotFound()
+    public async Task SendAuthenticationCode_ForUnknownUser_ReturnsUserNotFoundErrorResult()
     {
-        var mocks = CreateUnitOfWork(user: null);
-        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
+        // Arrange
+        User? user = default;
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+
+        // Act
         var result = await handler.Handle(new SendAuthenticationCodeCommand("nonexistent@test.com"), CancellationToken.None);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.IsType<UserNotFoundError>(result.Error);
     }
 
     [Fact]
-    public async Task SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited()
+    public async Task SendAuthenticationCode_ForRateLimitedRequest_ReturnsRateLimitedErrorResult()
     {
-        var user = CreateUser();
-        var recentCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        var mocks = CreateUnitOfWork(user, new List<VerificationCode> { recentCode });
-        var handler = new SendAuthenticationCodeHandler(mocks.Uow.Object);
+        // Arrange
+        User? user = User.Register("test@test.com", "Test", "User", "123456789");
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        var result = await handler.Handle(new SendAuthenticationCodeCommand("test@test.com"), CancellationToken.None);
+        List<VerificationCode> verificationCodes = [VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(10))];
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(verificationCodes);
 
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var handler = new SendAuthenticationCodeHandler(unitOfWorkMock.Object);
+
+        // Act
+        var result = await handler.Handle(new SendAuthenticationCodeCommand(user.Email), CancellationToken.None);
+        
+        // Assert
         Assert.True(result.IsFailure);
         Assert.IsType<RateLimitedError>(result.Error);
     }
 
     [Fact]
-    public async Task GenerateToken_ForValidCode_ReturnsTokenWithExpiry()
+    public async Task GenerateToken_ForValidVerificationCode_ReturnsSuccessResult()
     {
-        var user = CreateUser();
-        var validCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        var mocks = CreateUnitOfWork(user, new List<VerificationCode> { validCode });
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(user.Id).Object);
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
+        VerificationCode verificationCode = VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(10));
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>() { verificationCode });
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var jwtServiceMock = new Mock<IJwtService>();
+        jwtServiceMock.Setup(s => s.GenerateToken(user.Id, user.Email)).Returns("test-token");
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object,jwtServiceMock.Object);
+
+        // Act
+        var result = await handler.Handle(new GenerateTokenCommand(user.Email, verificationCode.Code), CancellationToken.None);
+        
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("test-token", result.Value.Token);
         Assert.True(result.Value.ExpiresAt > DateTime.UtcNow);
     }
 
     [Fact]
-    public async Task GenerateToken_ForValidCode_MarksCodeUsed()
+    public async Task GenerateToken_ForValidVerificationCode_ReturnsValidToken()
     {
-        var user = CreateUser();
-        var validCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        var mocks = CreateUnitOfWork(user, new List<VerificationCode> { validCode });
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, CreateJwtService(user.Id).Object);
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        Assert.True(validCode.IsUsed);
+        VerificationCode verificationCode = VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(10));
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>() { verificationCode });
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var jwtServiceMock = new Mock<IJwtService>();
+        jwtServiceMock.Setup(s => s.GenerateToken(user.Id, user.Email)).Returns("test-token");
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object, jwtServiceMock.Object);
+
+        // Act
+        var result = await handler.Handle(new GenerateTokenCommand(user.Email, verificationCode.Code), CancellationToken.None);
+
+        // Assert
+        Assert.Equal("test-token", result.Value.Token);
+        Assert.True(result.Value.ExpiresAt > DateTime.UtcNow);
     }
 
     [Fact]
-    public async Task GenerateToken_ForUnknownUser_ReturnsInvalidCredentials()
+    public async Task GenerateToken_ForValidVerificationCode_MarksVerificationCodeAsUsed()
     {
-        var mocks = CreateUnitOfWork(user: null);
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        VerificationCode verificationCode = VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(10));
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>() { verificationCode });
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var jwtServiceMock = new Mock<IJwtService>();
+        jwtServiceMock.Setup(s => s.GenerateToken(user.Id, user.Email)).Returns("test-token");
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object, jwtServiceMock.Object);
+
+        // Act
+        var result = await handler.Handle(new GenerateTokenCommand(user.Email, verificationCode.Code), CancellationToken.None);
+
+        // Assert
+        Assert.True(verificationCode.IsUsed);
+    }
+
+    [Fact]
+    public async Task GenerateToken_ForUnknownUser_ReturnsInvalidCredentialsErrorResult()
+    {
+        // Arrange
+        User? user = default;
+
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var jwtServiceMock = new Mock<IJwtService>();
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object, jwtServiceMock.Object);
+
+        // Act
         var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
-
+        
+        // Assert
         Assert.True(result.IsFailure);
         Assert.IsType<InvalidCredentialsError>(result.Error);
     }
 
     [Fact]
-    public async Task GenerateToken_ForInvalidCode_ReturnsInvalidCredentials()
+    public async Task GenerateToken_ForNullVerificationCodeDbQueryResult_ReturnsInvalidCredentialsErrorResult()
     {
-        var user = CreateUser();
-        var mocks = CreateUnitOfWork(user);
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        var result = await handler.Handle(new GenerateTokenCommand("test@test.com", "000000"), CancellationToken.None);
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<VerificationCode>());
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var jwtServiceMock = new Mock<IJwtService>();
+        jwtServiceMock.Setup(s => s.GenerateToken(user.Id, user.Email)).Returns("test-token");
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object, jwtServiceMock.Object);
+
+        // Act
+        var result = await handler.Handle(new GenerateTokenCommand(user.Email, "000000"), CancellationToken.None);
+
+        // Assert
         Assert.True(result.IsFailure);
         Assert.IsType<InvalidCredentialsError>(result.Error);
     }
 
     [Fact]
-    public async Task GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
+    public async Task GenerateToken_ForAnyRequest_DoesNotLoadUsedCodes()
     {
-        var user = CreateUser();
-        var usedCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(5));
-        usedCode.MarkAsUsed();
-        var mocks = CreateUnitOfWork(user);
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        Expression<Func<VerificationCode, bool>>? predicate = null;
-        mocks.Codes
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        VerificationCode verificationCode = VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(10));
+        verificationCode.MarkAsUsed();
+
+        Expression<Func<VerificationCode, bool>>? capturedPredicate = null;
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
-            .Callback<Expression<Func<VerificationCode, bool>>, CancellationToken>((expr, _) => predicate = expr)
-            .ReturnsAsync(new List<VerificationCode>());
+            .Callback<Expression<Func<VerificationCode, bool>>, CancellationToken>((predicate, _) => capturedPredicate = predicate)
+            .ReturnsAsync(new List<VerificationCode>() { verificationCode });
 
-        await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        Assert.NotNull(predicate);
-        Assert.False(predicate!.Compile()(usedCode));
+        var jwtServiceMock = new Mock<IJwtService>();
+        jwtServiceMock.Setup(s => s.GenerateToken(user.Id, user.Email)).Returns("test-token");
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object, jwtServiceMock.Object);
+
+        // Act
+        var result = await handler.Handle(new GenerateTokenCommand(user.Email, verificationCode.Code), CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedPredicate);
+        Assert.False(capturedPredicate!.Compile()(verificationCode));
     }
 
     [Fact]
-    public async Task GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup()
+    public async Task GenerateToken_ForAnyRequest_DoesNotLoadExpiredCodes()
     {
-        var user = CreateUser();
-        var expiredCode = VerificationCode.Generate(user.Id, "test@test.com", "123456", DateTime.UtcNow.AddMinutes(-1));
-        var mocks = CreateUnitOfWork(user);
-        var handler = new GenerateTokenHandler(mocks.Uow.Object, Mock.Of<IJwtService>());
+        // Arrange
+        var user = User.Register("test@test.com", "Test", "User", "123456789");
 
-        Expression<Func<VerificationCode, bool>>? predicate = null;
-        mocks.Codes
+        var userRepositoryMock = new Mock<IUserRepository>();
+        userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        VerificationCode verificationCode = VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(-1));
+
+        Expression<Func<VerificationCode, bool>>? capturedPredicate = null;
+        var verificationCodesRepositoryMock = new Mock<IVerificationCodeRepository>();
+        verificationCodesRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<VerificationCode, bool>>>(), It.IsAny<CancellationToken>()))
-            .Callback<Expression<Func<VerificationCode, bool>>, CancellationToken>((expr, _) => predicate = expr)
-            .ReturnsAsync(new List<VerificationCode>());
+            .Callback<Expression<Func<VerificationCode, bool>>, CancellationToken>((predicate, _) => capturedPredicate = predicate)
+            .ReturnsAsync(new List<VerificationCode>() { verificationCode });
 
-        await handler.Handle(new GenerateTokenCommand("test@test.com", "123456"), CancellationToken.None);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(userRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.VerificationCodes).Returns(verificationCodesRepositoryMock.Object);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        Assert.NotNull(predicate);
-        Assert.False(predicate!.Compile()(expiredCode));
+        var jwtServiceMock = new Mock<IJwtService>();
+        jwtServiceMock.Setup(s => s.GenerateToken(user.Id, user.Email)).Returns("test-token");
+
+        var handler = new GenerateTokenHandler(unitOfWorkMock.Object, jwtServiceMock.Object);
+
+        // Act
+        var result = await handler.Handle(new GenerateTokenCommand(user.Email, verificationCode.Code), CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedPredicate);
+        Assert.False(capturedPredicate!.Compile()(VerificationCode.Generate(user.Id, user.Email, "123456", DateTime.UtcNow.AddMinutes(-1))));
     }
 }
