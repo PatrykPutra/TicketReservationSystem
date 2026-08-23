@@ -17,38 +17,7 @@
 
 Tests refactoring:
 - Variable names should be expressive and self-explanatory, don’t use acronyms or half words
-AddUserHandlerTests:
-+ remove helper methods and make tests self-arranged
-+ Incorrect method naming: use Handle instead AddUser
-+ incorrect variable naming: use unitOfWorkMock instead mock
-+ Add test scenario for invalid email returns error
-ApplicationDbContextTests:
-+ Verify IDomainEventsDispatcher namespace
-+ Incorrect variable naming: ctx
-+ Change name SaveChangesAsync_PaymentMoney_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesPaymentWithoutLoss
-+ Change name SaveChangesAsync_EventTimeRange_RoundTripsLosslessly to SaveChangesAsync_ForValidInput_SavesEventWithoutLoss
-+ Add test scenarios for other entities to check if they are saved without loss
-AuthenticationControllerTests:
-+ Change name SendCode_WhenUserNotFound_ReturnsNotFound to SendCode_ForNotRegisteredUser_ReturnsNotFound
-+ Change test scenario SendCode_WhenUnexpectedError_Returns500 to not check against InvalidCredentialsError
-+ Change name: SendCode_WhenUnexpectedError_Returns500 to SendCode_ForUnexpectedError_Returns500
-AuthenticationHandlerTests:
-+ Change name SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to SendAuthenticationCode_ForRateLimitedRequest_ReturnsRateLimited
-- Correct test scenario for SendAuthenticationCode_WhenRateLimited_ReturnsRateLimited to enforce RateLimitedWindow 60 sec
-+ Rename GenerateToken_ForValidCode_ReturnsTokenWithExpiry to GenerateToken_ForValidCode_ReturnsSuccessResultWithValidToken
-+ Change name GenerateToken_ForValidCode_MarksCodeUsed to GenerateToken_ForValidCode_MarksCodeAsUsed
-+ Verify what is going on in GenerateToken_ForUsedCode_FiltersCodeOutOfLookup()
-+ Verify what is going on in GenerateToken_ForExpiredCode_FiltersCodeOutOfLookup
-CreateCheckoutHandlerTests:
-+ get rid of helper methods, make every test arrange test scenario on its own
-- divide into two test scenarios CreateCheckout_ForReservedTicket_AddsPendingPaymentWithExternalId()
-- change name CreateCheckout_OnCurrencyMismatch_PropagatesError() to CreateCheckout_ForCurrencyMismatch_ReturnsFailedResultWithCurrencyMismatchError
-EventDtoTests:
-- change to single assertion since EventDto is a record it can be compared by default
-EventsController:
-- divide GetEventById_WhenEventFound_ReturnsOk into two test scenarios first to check response code and second to check dto value
-- change name GetEventById_WhenEventMissing_ReturnsNotFound() to GetEventById_ForNotRegisteredEvent_ReturnsNotFound
-- divide GetEvents_ForExistingEvents_ReturnsOkWithEvents() into two test scenarios first to check response code and second to check dto values
+
 ExpiredPaymentCleanupJobTests:
 - get rid of helper methods and make tests to arrange test scenario individualy
 - redesign Execute_FilterPredicate_SelectsStalePendingAndExcludesFreshAndNonPending() to be case not fact

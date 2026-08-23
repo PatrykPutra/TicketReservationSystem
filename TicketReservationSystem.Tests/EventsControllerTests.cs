@@ -13,17 +13,17 @@ namespace TicketReservationSystem.Tests;
 
 public class EventsControllerTests
 {
-    private static readonly DateTime Start = new(2027, 1, 15, 19, 0, 0, DateTimeKind.Utc);
-    private static readonly DateTime End = new(2027, 1, 15, 23, 0, 0, DateTimeKind.Utc);
-
     private static EventDto CreateEventDto()
     {
+        DateTime start = DateTime.UtcNow.AddDays(30);
+        DateTime end = start.AddHours(3);
+
         return new EventDto(
             SocialEventId.CreateUnique(),
             "Test Event",
             "Description",
-            Start,
-            End,
+            start,
+            end,
             100,
             80,
             20,
@@ -50,6 +50,7 @@ public class EventsControllerTests
     [Fact]
     public async Task GetEventById_WhenEventFound_ReturnsOk()
     {
+        // Arrange
         var eventDto = CreateEventDto();
         var controller = CreateController(querySetup: mock =>
         {
@@ -58,8 +59,10 @@ public class EventsControllerTests
                 .ReturnsAsync(new GetEventByIdResult(eventDto));
         });
 
+        // Act
         var result = await controller.GetEventById(Guid.NewGuid());
 
+        // Assert
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Same(eventDto, ok.Value);
     }
@@ -67,6 +70,7 @@ public class EventsControllerTests
     [Fact]
     public async Task GetEventById_WhenEventMissing_ReturnsNotFound()
     {
+        // Arrange
         var controller = CreateController(querySetup: mock =>
         {
             mock.Setup(d => d.ExecuteAsync<GetEventByIdQuery, GetEventByIdResult>(
@@ -74,14 +78,17 @@ public class EventsControllerTests
                 .ReturnsAsync(new GetEventByIdResult(null));
         });
 
+        // Act
         var result = await controller.GetEventById(Guid.NewGuid());
 
+        // Assert
         Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
     public async Task GetEvents_ForExistingEvents_ReturnsOkWithEvents()
     {
+        // Arrange
         var events = new List<EventDto> { CreateEventDto(), CreateEventDto() };
         var controller = CreateController(querySetup: mock =>
         {
@@ -90,8 +97,10 @@ public class EventsControllerTests
                 .ReturnsAsync(new GetEventsResult(events));
         });
 
+        // Act
         var result = await controller.GetEvents();
 
+        // Assert
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Same(events, ok.Value);
     }
