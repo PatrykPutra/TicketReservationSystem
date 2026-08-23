@@ -1,75 +1,85 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using System.Text.Json;
 using TicketReservationSystem.API.Middleware;
 
 namespace TicketReservationSystem.Tests;
 
 public class ExceptionHandlingMiddlewareTests
 {
-    private static ExceptionHandlingMiddleware CreateMiddleware(
-        RequestDelegate next,
-        ILogger<ExceptionHandlingMiddleware>? logger = null)
-    {
-        return new ExceptionHandlingMiddleware(
-            next,
-            logger ?? NullLogger<ExceptionHandlingMiddleware>.Instance);
-    }
-
     [Fact]
     public async Task InvokeAsync_WhenNextSucceeds_PassesThrough()
     {
-        var context = new DefaultHttpContext
+        // Arrange
+        var httpContext = new DefaultHttpContext
         {
             Response = { Body = new MemoryStream() }
         };
+
         var nextCalled = false;
-        var middleware = CreateMiddleware(ctx =>
+        RequestDelegate nextRequestDelegate = context =>
         {
             nextCalled = true;
-            ctx.Response.StatusCode = StatusCodes.Status204NoContent;
+            context.Response.StatusCode = StatusCodes.Status204NoContent;
             return Task.CompletedTask;
-        });
+        };
+        var exceptionHandlingMiddleware = new ExceptionHandlingMiddleware(
+            nextRequestDelegate, NullLogger<ExceptionHandlingMiddleware>.Instance);
 
-        await middleware.InvokeAsync(context);
+        // Act
+        await exceptionHandlingMiddleware.InvokeAsync(httpContext);
 
+        // Assert
         Assert.True(nextCalled);
-        Assert.Equal(StatusCodes.Status204NoContent, context.Response.StatusCode);
-        Assert.Equal(0, context.Response.Body.Length);
+        Assert.Equal(StatusCodes.Status204NoContent, httpContext.Response.StatusCode);
+        Assert.Equal(0, httpContext.Response.Body.Length);
     }
 
     [Fact]
     public async Task InvokeAsync_WhenNextThrows_Sets500Response()
     {
-        var context = new DefaultHttpContext
+        // Arrange
+        var httpContext = new DefaultHttpContext
         {
             Response = { Body = new MemoryStream() }
         };
-        var middleware = CreateMiddleware(_ => throw new InvalidOperationException("boom"));
 
-        await middleware.InvokeAsync(context);
+        RequestDelegate nextRequestDelegate = (context) => throw new InvalidOperationException("boom");
+        
+        var exceptionHandlingMiddleware = new ExceptionHandlingMiddleware(
+            nextRequestDelegate, NullLogger<ExceptionHandlingMiddleware>.Instance);
 
-        Assert.Equal(StatusCodes.Status500InternalServerError, context.Response.StatusCode);
-        Assert.Equal("application/problem+json", context.Response.ContentType);
+        // Act
+        await exceptionHandlingMiddleware.InvokeAsync(httpContext);
+        
+        // Assert
+        Assert.Equal(StatusCodes.Status500InternalServerError, httpContext.Response.StatusCode);
+        Assert.Equal("application/problem+json", httpContext.Response.ContentType);
     }
 
     [Fact]
     public async Task InvokeAsync_WhenNextThrows_WritesProblemDetailsBody()
     {
-        var context = new DefaultHttpContext
+        // Arrange
+        var httpContext = new DefaultHttpContext
         {
             Response = { Body = new MemoryStream() }
         };
-        var middleware = CreateMiddleware(_ => throw new InvalidOperationException("boom"));
 
-        await middleware.InvokeAsync(context);
+        RequestDelegate nextRequestDelegate = (context) => throw new InvalidOperationException("boom");
 
-        context.Response.Body.Seek(0, SeekOrigin.Begin);
-        using var reader = new StreamReader(context.Response.Body, leaveOpen: true);
+        var exceptionHandlingMiddleware = new ExceptionHandlingMiddleware(
+            nextRequestDelegate, NullLogger<ExceptionHandlingMiddleware>.Instance);
+
+        // Act
+        await exceptionHandlingMiddleware.InvokeAsync(httpContext);
+        httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        using var reader = new StreamReader(httpContext.Response.Body, leaveOpen: true);
         var body = await reader.ReadToEndAsync();
 
+        // Assert
         using var doc = JsonDocument.Parse(body);
         Assert.Equal("An unexpected error occurred", doc.RootElement.GetProperty("title").GetString());
         Assert.Equal(StatusCodes.Status500InternalServerError, doc.RootElement.GetProperty("status").GetInt32());
@@ -78,15 +88,22 @@ public class ExceptionHandlingMiddlewareTests
     [Fact]
     public async Task InvokeAsync_WhenNextThrows_LogsError()
     {
-        var context = new DefaultHttpContext
+        // Arrange
+        var httpContext = new DefaultHttpContext
         {
             Response = { Body = new MemoryStream() }
         };
+
+        RequestDelegate nextRequestDelegate = (context) => throw new InvalidOperationException("boom");
         var logger = new Mock<ILogger<ExceptionHandlingMiddleware>>();
-        var middleware = CreateMiddleware(_ => throw new InvalidOperationException("boom"), logger.Object);
 
-        await middleware.InvokeAsync(context);
+        var exceptionHandlingMiddleware = new ExceptionHandlingMiddleware(
+            nextRequestDelegate, logger.Object);
 
+        // Act
+        await exceptionHandlingMiddleware.InvokeAsync(httpContext);
+        
+        //Assert
         logger.Verify(
             l => l.Log(
                 LogLevel.Error,
