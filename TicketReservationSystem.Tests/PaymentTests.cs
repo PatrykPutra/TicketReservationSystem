@@ -17,7 +17,8 @@ public class PaymentTests
             TicketId.CreateUnique(),
             UserId.CreateUnique(),
             Amount,
-            PaymentProvider.Stripe);
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
     }
 
     [Fact]

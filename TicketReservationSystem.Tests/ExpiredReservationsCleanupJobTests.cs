@@ -133,7 +133,7 @@ public class ExpiredReservationsCleanupJobTests
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Ticket> { expiredTicket });
 
-        var pendingPayment = new Payment(PaymentId.CreateUnique(), expiredTicket.Id, userId, DefaultPrice, PaymentProvider.Stripe);
+        var pendingPayment = new Payment(PaymentId.CreateUnique(), expiredTicket.Id, userId, DefaultPrice, PaymentProvider.Stripe, DateTime.UtcNow);
         payments
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Payment> { pendingPayment });

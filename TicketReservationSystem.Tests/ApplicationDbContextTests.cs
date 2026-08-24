@@ -34,7 +34,7 @@ public class ApplicationDbContextTests
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            var payment = new Payment(paymentId, TicketId.CreateUnique(), UserId.CreateUnique(), amount, PaymentProvider.Stripe);
+            var payment = new Payment(paymentId, TicketId.CreateUnique(), UserId.CreateUnique(), amount, PaymentProvider.Stripe, DateTime.UtcNow);
             dbContext.Payments.Add(payment);
             await dbContext.SaveChangesAsync();
         }

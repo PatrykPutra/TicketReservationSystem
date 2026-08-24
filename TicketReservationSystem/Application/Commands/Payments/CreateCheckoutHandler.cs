@@ -10,11 +10,13 @@ namespace TicketReservationSystem.Application.Commands.Payments
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPaymentsService _paymentsService;
+        private readonly TimeProvider _timeProvider;
 
-        public CreateCheckoutHandler(IUnitOfWork unitOfWork, IPaymentsService paymentsService)
+        public CreateCheckoutHandler(IUnitOfWork unitOfWork, IPaymentsService paymentsService, TimeProvider timeProvider)
         {
             _unitOfWork = unitOfWork;
             _paymentsService = paymentsService;
+            _timeProvider = timeProvider;
         }
 
         public async Task<CreateCheckoutResult> Handle(CreateCheckoutCommand request, CancellationToken cancellationToken)
@@ -35,7 +37,7 @@ namespace TicketReservationSystem.Application.Commands.Payments
                 return new CreateCheckoutResult(new DuplicatePaymentError("An active payment already exists for this ticket"));
 
             var paymentId = PaymentId.CreateUnique();
-            var payment = new Payment(paymentId, request.TicketId, request.UserId, ticket.Price, PaymentProvider.Stripe);
+            var payment = new Payment(paymentId, request.TicketId, request.UserId, ticket.Price, PaymentProvider.Stripe, _timeProvider.GetUtcNow().DateTime);
             _unitOfWork.Payments.Add(payment);
 
             var sessionResult = await _paymentsService.CreateCheckoutSessionAsync(ticket.Price, paymentId, cancellationToken);

@@ -15,18 +15,18 @@ namespace TicketReservationSystem.Domain.Entities
         public string? ExternalId { get; private set; }
         public PaymentStatus Status { get; private set; }
 
-        public DateTime CreatedAt { get; internal set; }
+        public DateTime CreatedAt { get; private set; }
         public DateTime? ModifiedAt { get; private set; }
         public DateTime? CompletedAt { get; private set; }
 
-        public Payment(PaymentId id, TicketId ticketId, UserId userId, Money amount, PaymentProvider paymentProvider) : base(id)
+        public Payment(PaymentId id, TicketId ticketId, UserId userId, Money amount, PaymentProvider paymentProvider, DateTime createdAt) : base(id)
         {
             TicketId = ticketId;
             UserId = userId;
             Amount = amount;
             PaymentProvider = paymentProvider;
             Status = PaymentStatus.Pending;
-            CreatedAt = DateTime.UtcNow;
+            CreatedAt = createdAt;
         }
 
         private Payment()

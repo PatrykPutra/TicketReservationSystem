@@ -68,7 +68,7 @@ public class CreateCheckoutHandlerTests
             .Setup(s => s.CreateCheckoutSessionAsync(It.IsAny<Money>(), It.IsAny<PaymentId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CreateCheckoutSessionResult>.Success(checkoutSessionResult));
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object);
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object,TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(ticket.Id, userId), CancellationToken.None);
@@ -112,7 +112,7 @@ public class CreateCheckoutHandlerTests
             .Setup(s => s.CreateCheckoutSessionAsync(It.IsAny<Money>(), It.IsAny<PaymentId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CreateCheckoutSessionResult>.Success(checkoutSessionResult));
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object);
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object, TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(ticket.Id, userId), CancellationToken.None);
@@ -150,7 +150,7 @@ public class CreateCheckoutHandlerTests
             .Setup(s => s.CreateCheckoutSessionAsync(It.IsAny<Money>(), It.IsAny<PaymentId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CreateCheckoutSessionResult>.Success(checkoutSessionResult));
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object);
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object, TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(ticket.Id, userId), CancellationToken.None);
@@ -180,7 +180,7 @@ public class CreateCheckoutHandlerTests
         unitOfWorkMock.SetupGet(u => u.Payments).Returns(paymentsRepositoryMock.Object);
         unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, Mock.Of<IPaymentsService>());
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, Mock.Of<IPaymentsService>(), TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(TicketId.CreateUnique(), UserId.CreateUnique()), CancellationToken.None);
@@ -212,7 +212,7 @@ public class CreateCheckoutHandlerTests
         unitOfWorkMock.SetupGet(u => u.Payments).Returns(paymentsRepositoryMock.Object);
         unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, Mock.Of<IPaymentsService>());
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, Mock.Of<IPaymentsService>(), TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(ticket.Id, userId), CancellationToken.None);
@@ -234,7 +234,7 @@ public class CreateCheckoutHandlerTests
             .Setup(r => r.GetByIdAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ticket);
 
-        var existingPayment = new Payment(PaymentId.CreateUnique(), ticket.Id, userId, DefaultPrice, PaymentProvider.Stripe);
+        var existingPayment = new Payment(PaymentId.CreateUnique(), ticket.Id, userId, DefaultPrice, PaymentProvider.Stripe, DateTime.UtcNow);
         var paymentsRepositoryMock = new Mock<IPaymentRepository>();
         paymentsRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<System.Linq.Expressions.Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
@@ -245,7 +245,7 @@ public class CreateCheckoutHandlerTests
         unitOfWorkMock.SetupGet(u => u.Payments).Returns(paymentsRepositoryMock.Object);
         unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, Mock.Of<IPaymentsService>());
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, Mock.Of<IPaymentsService>(), TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(ticket.Id, userId), CancellationToken.None);
@@ -283,7 +283,7 @@ public class CreateCheckoutHandlerTests
             .ReturnsAsync(Result<CreateCheckoutSessionResult>.Failure(
                 new CurrencyMismatchError("Amount currency does not match configured currency")));
 
-        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object);
+        var handler = new CreateCheckoutHandler(unitOfWorkMock.Object, paymentsServiceMock.Object, TimeProvider.System);
 
         // Act
         var result = await handler.Handle(new CreateCheckoutCommand(ticket.Id, userId), CancellationToken.None);

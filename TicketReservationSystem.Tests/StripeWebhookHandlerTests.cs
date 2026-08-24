@@ -30,7 +30,7 @@ public class StripeWebhookHandlerTests
         ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
         ticket.Reserve(userId);
 
-        payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
+        payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe, DateTime.UtcNow);
         payment.SetExternalId("cs_test_123");
 
         return (ticketId, userId, paymentId);

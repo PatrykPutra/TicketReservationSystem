@@ -29,7 +29,7 @@ public class PaymentFailedEventHandlerTests
             DateTime.UtcNow.AddDays(30).AddHours(4));
         var socialEvent = new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
         ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
-        payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe);
+        payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe, DateTime.UtcNow);
         payment.MarkFailed();
         user = User.Register("user@test.com", "Test", "User", "123456789");
 

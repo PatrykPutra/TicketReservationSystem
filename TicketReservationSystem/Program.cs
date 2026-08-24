@@ -38,6 +38,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 
 var app = builder.Build();
 
