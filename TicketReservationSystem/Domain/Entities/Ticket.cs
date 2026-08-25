@@ -22,9 +22,9 @@ namespace TicketReservationSystem.Domain.Entities
         public DateTime CreatedAt { get; private set; }
         public DateTime? ModifiedAt { get; private set; }
         public DateTime? ConfirmedAt { get; private set; }
-        public DateTime? ReservedAt { get; internal set; }
+        public DateTime? ReservedAt { get; private set; }
 
-        public Ticket(TicketId id, SocialEventId eventId, SocialEvent socialEvent, string seatNumber, Money price) : base(id)
+        public Ticket(TicketId id, SocialEventId eventId, SocialEvent socialEvent, string seatNumber, Money price, DateTime? createdAt = null) : base(id)
         {
             EventId = eventId;
             SocialEvent = socialEvent;
@@ -32,7 +32,7 @@ namespace TicketReservationSystem.Domain.Entities
             Status = TicketStatus.Available;
             UserId = null;
             Price = price;
-            CreatedAt = DateTime.UtcNow;
+            CreatedAt = createdAt ?? DateTime.UtcNow;
         }
 
         private Ticket()
@@ -60,14 +60,14 @@ namespace TicketReservationSystem.Domain.Entities
             return DateTime.UtcNow >= SocialEvent.TimeRange.EndTime;
         }
 
-        public void Reserve(UserId userId)
+        public void Reserve(UserId userId, DateTime? reservedAt = null)
         {
             if (Status != TicketStatus.Available)
                 throw new TicketStatusException($"Ticket {SeatNumber} is not available");
 
             Status = TicketStatus.Reserved;
             UserId = userId;
-            ReservedAt = DateTime.UtcNow;
+            ReservedAt = reservedAt ?? DateTime.UtcNow;
 
             AddDomainEvent(new TicketReservedEvent(Id, userId, EventId));
         }

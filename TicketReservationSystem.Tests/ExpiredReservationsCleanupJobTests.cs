@@ -14,92 +14,109 @@ namespace TicketReservationSystem.Tests;
 public class ExpiredReservationsCleanupJobTests
 {
     private static readonly Money DefaultPrice = new(150, "PLN");
-
-    private static (SocialEvent SocialEvent, UserId UserId) CreateSeededData()
+    private static SocialEvent CreateSocialEvent()
     {
-        var eventId = SocialEventId.CreateUnique();
         var timeRange = new DateTimeRange(
             DateTime.UtcNow.AddDays(30),
             DateTime.UtcNow.AddDays(30).AddHours(4));
-        return (new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice), UserId.CreateUnique());
+        var socialEvent = new SocialEvent(SocialEventId.CreateUnique(), "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
+        return socialEvent;
     }
 
-    private static Ticket CreateReservedTicket(SocialEvent socialEvent, UserId userId, DateTime? reservedAt)
+    private static Ticket CreateTicket(SocialEvent socialEvent)
     {
-        var ticket = new Ticket(TicketId.CreateUnique(), socialEvent.Id, socialEvent, "A1", DefaultPrice);
-        ticket.Reserve(userId);
-        ticket.ReservedAt = reservedAt;
+        Ticket ticket = new Ticket(TicketId.CreateUnique(), socialEvent.Id, socialEvent, "A1", DefaultPrice);
         return ticket;
     }
 
-    private static (Mock<IServiceScopeFactory> ScopeFactory, Mock<IUnitOfWork> UnitOfWork, Mock<ITicketRepository> Tickets, Mock<IPaymentRepository> Payments) CreateJobMocks()
+    private static Mock<IUnitOfWork> CreateUnitOfWorkMock(IPaymentRepository paymentRepository, ITicketRepository ticketRepository)
     {
-        var tickets = new Mock<ITicketRepository>();
-        tickets
-            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Ticket>());
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.Setup(uow => uow.Payments).Returns(paymentRepository);
+        unitOfWorkMock.Setup(uow => uow.Tickets).Returns(ticketRepository);
+        unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        return unitOfWorkMock;
+    }
 
-        var payments = new Mock<IPaymentRepository>();
-        payments
-            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Payment>());
+    private static Mock<IServiceScopeFactory> CreateScopeFactoryMock(IUnitOfWork unitOfWork)
+    {
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        serviceProviderMock.Setup(sp => sp.GetService(typeof(IUnitOfWork))).Returns(unitOfWork);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Tickets).Returns(tickets.Object);
-        uow.SetupGet(u => u.Payments).Returns(payments.Object);
-        uow.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        var scopeServiceMock = new Mock<IServiceScope>();
+        scopeServiceMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
 
-        var serviceProvider = new Mock<IServiceProvider>();
-        serviceProvider.Setup(sp => sp.GetService(typeof(IUnitOfWork))).Returns(uow.Object);
+        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        scopeFactoryMock.Setup(f => f.CreateScope()).Returns(scopeServiceMock.Object);
 
-        var scope = new Mock<IServiceScope>();
-        scope.Setup(s => s.ServiceProvider).Returns(serviceProvider.Object);
-
-        var scopeFactory = new Mock<IServiceScopeFactory>();
-        scopeFactory.Setup(f => f.CreateScope()).Returns(scope.Object);
-
-        return (scopeFactory, uow, tickets, payments);
+        return scopeFactoryMock;
     }
 
     [Fact]
     public async Task Execute_FilterPredicate_SelectsExpiredReservedAndExcludesFreshAndAvailable()
     {
-        var (socialEvent, userId) = CreateSeededData();
-        var (scopeFactory, _, tickets, _) = CreateJobMocks();
-
-        var expiredTicket = CreateReservedTicket(socialEvent, userId, DateTime.UtcNow.AddMinutes(-20));
-        var freshTicket = CreateReservedTicket(socialEvent, userId, DateTime.UtcNow);
-        var availableTicket = new Ticket(TicketId.CreateUnique(), socialEvent.Id, socialEvent, "A2", DefaultPrice);
+        var socialEvent = CreateSocialEvent();
+        var userId = UserId.CreateUnique();
+        
+        var expiredTicket = CreateTicket(socialEvent);
+        expiredTicket.Reserve(userId,DateTime.UtcNow.AddMinutes(-20));
+        
+        var activeTicket = CreateTicket(socialEvent);
+        activeTicket.Reserve(userId, DateTime.UtcNow.AddMinutes(-9));
+        
+        var availableTicket = CreateTicket(socialEvent);
 
         var capturedPredicate = default(Expression<Func<Ticket, bool>>);
-        tickets
+        var ticketRepositoryMock = new Mock<ITicketRepository>();
+        ticketRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
             .Callback<Expression<Func<Ticket, bool>>, CancellationToken>((predicate, _) => capturedPredicate = predicate)
             .ReturnsAsync(new List<Ticket>());
 
-        var job = new ExpiredReservationsCleanupJob(scopeFactory.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+        var unitOfWorkMock = CreateUnitOfWorkMock(Mock.Of<IPaymentRepository>(), ticketRepositoryMock.Object);
+        var scopeFactoryMock = CreateScopeFactoryMock(unitOfWorkMock.Object);
+
+        var job = new ExpiredReservationsCleanupJob(scopeFactoryMock.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+
+        // Act
         await job.Execute(Mock.Of<IJobExecutionContext>());
 
+        // Assert
         var predicate = capturedPredicate!.Compile();
         Assert.True(predicate(expiredTicket));
-        Assert.False(predicate(freshTicket));
+        Assert.False(predicate(activeTicket));
         Assert.False(predicate(availableTicket));
     }
 
     [Fact]
     public async Task Execute_ForExpiredReservation_ReleasesTicket()
     {
-        var (socialEvent, userId) = CreateSeededData();
-        var (scopeFactory, _, tickets, _) = CreateJobMocks();
-        var expiredTicket = CreateReservedTicket(socialEvent, userId, DateTime.UtcNow.AddMinutes(-20));
+        // Arrange
+        var socialEvent = CreateSocialEvent();
+        var userId = UserId.CreateUnique();
 
-        tickets
+        var expiredTicket = CreateTicket(socialEvent);
+        expiredTicket.Reserve(userId, DateTime.UtcNow.AddMinutes(-20));
+
+        var ticketRepositoryMock = new Mock<ITicketRepository>();
+        ticketRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Ticket> { expiredTicket });
+            .ReturnsAsync(new List<Ticket>() { expiredTicket });
 
-        var job = new ExpiredReservationsCleanupJob(scopeFactory.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+        var paymentRepositoryMock = new Mock<IPaymentRepository>();
+        paymentRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Payment>());
+
+        var unitOfWorkMock = CreateUnitOfWorkMock(paymentRepositoryMock.Object, ticketRepositoryMock.Object);
+        var scopeFactoryMock = CreateScopeFactoryMock(unitOfWorkMock.Object);
+
+        var job = new ExpiredReservationsCleanupJob(scopeFactoryMock.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+
+        // Act
         await job.Execute(Mock.Of<IJobExecutionContext>());
-
+        
+        // Assert
         Assert.Equal(TicketStatus.Available, expiredTicket.Status);
         Assert.Null(expiredTicket.UserId);
         Assert.Null(expiredTicket.ReservedAt);
@@ -108,40 +125,89 @@ public class ExpiredReservationsCleanupJobTests
     [Fact]
     public async Task Execute_ForExpiredReservation_SavesChanges()
     {
-        var (socialEvent, userId) = CreateSeededData();
-        var (scopeFactory, uow, tickets, _) = CreateJobMocks();
-        var expiredTicket = CreateReservedTicket(socialEvent, userId, DateTime.UtcNow.AddMinutes(-20));
+        // Arrange
+        var socialEvent = CreateSocialEvent();
+        var userId = UserId.CreateUnique();
 
-        tickets
+        var expiredTicket = CreateTicket(socialEvent);
+        expiredTicket.Reserve(userId, DateTime.UtcNow.AddMinutes(-20));
+
+        var ticketRepositoryMock = new Mock<ITicketRepository>();
+        ticketRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Ticket> { expiredTicket });
+            .ReturnsAsync(new List<Ticket>() { expiredTicket });
 
-        var job = new ExpiredReservationsCleanupJob(scopeFactory.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+        var paymentRepositoryMock = new Mock<IPaymentRepository>();
+        paymentRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Payment>());
+
+        var unitOfWorkMock = CreateUnitOfWorkMock(paymentRepositoryMock.Object, ticketRepositoryMock.Object);
+        var scopeFactoryMock = CreateScopeFactoryMock(unitOfWorkMock.Object);
+
+        var job = new ExpiredReservationsCleanupJob(scopeFactoryMock.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+
+        // Act
         await job.Execute(Mock.Of<IJobExecutionContext>());
 
-        uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        //Assert
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Execute_WithPendingPayment_SkipsTicket()
+    public async Task Execute_ForTicketWithPendingPayment_SkipsCleanup()
     {
-        var (socialEvent, userId) = CreateSeededData();
-        var (scopeFactory, uow, tickets, payments) = CreateJobMocks();
-        var expiredTicket = CreateReservedTicket(socialEvent, userId, DateTime.UtcNow.AddMinutes(-20));
+        var socialEvent = CreateSocialEvent();
+        var userId = UserId.CreateUnique();
 
-        tickets
+        var expiredTicket = CreateTicket(socialEvent);
+        expiredTicket.Reserve(userId, DateTime.UtcNow.AddMinutes(-20));
+
+        var ticketRepositoryMock = new Mock<ITicketRepository>();
+        ticketRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Ticket> { expiredTicket });
+            .ReturnsAsync(new List<Ticket>() { expiredTicket });
 
         var pendingPayment = new Payment(PaymentId.CreateUnique(), expiredTicket.Id, userId, DefaultPrice, PaymentProvider.Stripe, DateTime.UtcNow);
-        payments
+        var paymentRepositoryMock = new Mock<IPaymentRepository>();
+        paymentRepositoryMock
             .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Payment> { pendingPayment });
 
-        var job = new ExpiredReservationsCleanupJob(scopeFactory.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+        var unitOfWorkMock = CreateUnitOfWorkMock(paymentRepositoryMock.Object, ticketRepositoryMock.Object);
+        var scopeFactoryMock = CreateScopeFactoryMock(unitOfWorkMock.Object);
+
+        var job = new ExpiredReservationsCleanupJob(scopeFactoryMock.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+
+        // Act
+        await job.Execute(Mock.Of<IJobExecutionContext>());
+        
+        // Assert
+        Assert.Equal(TicketStatus.Reserved, expiredTicket.Status);
+    }
+
+    [Fact]
+    public async Task Execute_ForJobWithoutChanges_DoesNotCallSaveChanges()
+    {
+        var ticketRepositoryMock = new Mock<ITicketRepository>();
+        ticketRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Ticket, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Ticket>());
+
+        var paymentRepositoryMock = new Mock<IPaymentRepository>();
+        paymentRepositoryMock
+            .Setup(r => r.FindAsync(It.IsAny<Expression<Func<Payment, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Payment>());
+
+        var unitOfWorkMock = CreateUnitOfWorkMock(paymentRepositoryMock.Object, ticketRepositoryMock.Object);
+        var scopeFactoryMock = CreateScopeFactoryMock(unitOfWorkMock.Object);
+
+        var job = new ExpiredReservationsCleanupJob(scopeFactoryMock.Object, new NullLogger<ExpiredReservationsCleanupJob>());
+
+        // Act
         await job.Execute(Mock.Of<IJobExecutionContext>());
 
-        Assert.Equal(TicketStatus.Reserved, expiredTicket.Status);
-        uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        // Assert
+        unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }
