@@ -14,7 +14,6 @@ public class GetTicketByIdHandlerTests
 
     private static Ticket CreateTicket()
     {
-        
         var timeRange = new DateTimeRange(
             DateTime.UtcNow.AddDays(30),
             DateTime.UtcNow.AddDays(30).AddHours(4));
