@@ -12,79 +12,88 @@ public class GetUserHandlerTests
     [Fact]
     public async Task GetUser_WhenQueryByEmail_ReturnsMappedDto()
     {
-        var user = CreateUser();
+        // Arrange
+        var user = User.Register("user@test.com", "Firstname", "Lastname", "123456789");
+        var expected = new UserDto(user.Id, user.Email, user.FirstName, user.LastName, user.PhoneNumber, false);
 
-        var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByEmailAsync("user@test.com", It.IsAny<CancellationToken>()))
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
 
-        var handler = new GetUserHandler(uow.Object);
+        var handler = new GetUserHandler(unitOfWorkMock.Object);
 
-        var result = await handler.Handle(new GetUserQuery(email: "user@test.com"), CancellationToken.None);
+        // Act
+        var result = await handler.Handle(new GetUserQuery(email: user.Email), CancellationToken.None);
 
-        var expected = new UserDto(user.Id, "user@test.com", "Jan", "Kowalski", "123456789", false);
+        // Assert
         Assert.Equal(expected, result.User);
     }
 
     [Fact]
     public async Task GetUser_WhenQueryById_ReturnsMappedDto()
     {
-        var user = CreateUser();
+        // Arrange
+        var user = User.Register("user@test.com", "Firstname", "Lastname", "123456789");
+        var expected = new UserDto(user.Id, user.Email, user.FirstName, user.LastName, user.PhoneNumber, false);
 
-        var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock
+            .Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
 
-        var handler = new GetUserHandler(uow.Object);
+        var handler = new GetUserHandler(unitOfWorkMock.Object);
 
+        // Act
         var result = await handler.Handle(new GetUserQuery(userId: user.Id), CancellationToken.None);
 
-        var expected = new UserDto(user.Id, "user@test.com", "Jan", "Kowalski", "123456789", false);
+        // Assert
         Assert.Equal(expected, result.User);
     }
 
     [Fact]
     public async Task GetUser_WhenUserNotFound_ReturnsNullDto()
     {
-        var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
+        // Arrange
+        User? user = null;
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock.Setup(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
 
-        var handler = new GetUserHandler(uow.Object);
+        var handler = new GetUserHandler(unitOfWorkMock.Object);
 
+        // Act
         var result = await handler.Handle(new GetUserQuery(email: "missing@test.com"), CancellationToken.None);
 
+        // Assert
         Assert.Null(result.User);
     }
 
     [Fact]
     public async Task GetUser_WhenNoKeyProvided_ReturnsNullDtoWithoutQuerying()
     {
-        var usersRepo = new Mock<IUserRepository>();
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
+        // Arrange
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
 
-        var handler = new GetUserHandler(uow.Object);
+        var handler = new GetUserHandler(unitOfWorkMock.Object);
 
+        // Act
         var result = await handler.Handle(new GetUserQuery(), CancellationToken.None);
 
+        // Assert
         Assert.Null(result.User);
-        usersRepo.Verify(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        usersRepo.Verify(r => r.GetByIdAsync(It.IsAny<UserId>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    private static User CreateUser()
-    {
-        var user = User.Register("user@test.com", "Jan", "Kowalski", "123456789");
-        return user;
+        usersRepositoryMock.Verify(r => r.GetByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        usersRepositoryMock.Verify(r => r.GetByIdAsync(It.IsAny<UserId>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
