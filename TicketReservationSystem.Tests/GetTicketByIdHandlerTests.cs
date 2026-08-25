@@ -12,55 +12,61 @@ public class GetTicketByIdHandlerTests
 {
     private static readonly Money DefaultPrice = new(150, "PLN");
 
+    private static Ticket CreateTicket()
+    {
+        
+        var timeRange = new DateTimeRange(
+            DateTime.UtcNow.AddDays(30),
+            DateTime.UtcNow.AddDays(30).AddHours(4));
+        var socialEvent = new SocialEvent(SocialEventId.CreateUnique(), "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
+        return new Ticket(TicketId.CreateUnique(), socialEvent.Id, socialEvent, "A1", DefaultPrice);
+    }
+
     [Fact]
     public async Task GetTicketById_ForExistingTicket_ReturnsMappedDto()
     {
-        var eventId = SocialEventId.CreateUnique();
-        var ticketId = TicketId.CreateUnique();
+        // Arrange
         var userId = UserId.CreateUnique();
-        var ticket = CreateTicket(eventId, ticketId);
+        var ticket = CreateTicket();
         ticket.Reserve(userId);
+        var expected = new TicketDto(ticket.Id, ticket.EventId, ticket.SeatNumber, ticket.Status, userId, ticket.Price.Amount, ticket.Price.Currency);
 
-        var ticketsRepo = new Mock<ITicketRepository>();
-        ticketsRepo.Setup(r => r.GetByIdAsync(ticketId, It.IsAny<CancellationToken>()))
+        var ticketsRepositoryMock = new Mock<ITicketRepository>();
+        ticketsRepositoryMock.Setup(r => r.GetByIdAsync(ticket.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ticket);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Tickets).Returns(ticketsRepo.Object);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Tickets).Returns(ticketsRepositoryMock.Object);
 
-        var handler = new GetTicketByIdHandler(uow.Object);
+        var handler = new GetTicketByIdHandler(unitOfWorkMock.Object);
 
-        var result = await handler.Handle(new GetTicketByIdQuery(ticketId), CancellationToken.None);
+        // Act
+        var result = await handler.Handle(new GetTicketByIdQuery(ticket.Id), CancellationToken.None);
 
-        var expected = new TicketDto(ticketId, eventId, "A1", TicketStatus.Reserved, userId, 150m, "PLN");
+        // Assert
         Assert.Equal(expected, result.Ticket);
     }
 
     [Fact]
     public async Task GetTicketById_ForMissingTicket_ReturnsNullDto()
     {
+        // Arrange
         var ticketId = TicketId.CreateUnique();
+        Ticket? ticket = null;
 
-        var ticketsRepo = new Mock<ITicketRepository>();
-        ticketsRepo.Setup(r => r.GetByIdAsync(ticketId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Ticket?)null);
+        var ticketsRepositoryMock = new Mock<ITicketRepository>();
+        ticketsRepositoryMock.Setup(r => r.GetByIdAsync(ticketId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Tickets).Returns(ticketsRepo.Object);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Tickets).Returns(ticketsRepositoryMock.Object);
 
-        var handler = new GetTicketByIdHandler(uow.Object);
+        var handler = new GetTicketByIdHandler(unitOfWorkMock.Object);
 
+        // Act
         var result = await handler.Handle(new GetTicketByIdQuery(ticketId), CancellationToken.None);
 
+        // Assert
         Assert.Null(result.Ticket);
-    }
-
-    private static Ticket CreateTicket(SocialEventId eventId, TicketId ticketId)
-    {
-        var timeRange = new DateTimeRange(
-            DateTime.UtcNow.AddDays(30),
-            DateTime.UtcNow.AddDays(30).AddHours(4));
-        var socialEvent = new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
-        return new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
     }
 }
