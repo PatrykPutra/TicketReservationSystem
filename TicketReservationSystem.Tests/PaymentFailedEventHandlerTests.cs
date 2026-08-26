@@ -14,114 +14,292 @@ public class PaymentFailedEventHandlerTests
 {
     private static readonly Money DefaultPrice = new(150, "PLN");
 
-    private static (PaymentId PaymentId, TicketId TicketId, UserId UserId) CreateSeededData(
-        out User user,
-        out Payment payment,
-        out Ticket ticket)
+    private static SocialEvent CreateSocialEvent()
     {
-        var paymentId = PaymentId.CreateUnique();
-        var userId = UserId.CreateUnique();
-        var ticketId = TicketId.CreateUnique();
         var eventId = SocialEventId.CreateUnique();
-
         var timeRange = new DateTimeRange(
             DateTime.UtcNow.AddDays(30),
             DateTime.UtcNow.AddDays(30).AddHours(4));
-        var socialEvent = new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
-        ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
-        payment = new Payment(paymentId, ticketId, userId, DefaultPrice, PaymentProvider.Stripe, DateTime.UtcNow);
-        payment.MarkFailed();
-        user = User.Register("user@test.com", "Test", "User", "123456789");
 
-        return (paymentId, ticketId, userId);
-    }
-
-    private static (PaymentFailedEventHandler Handler, Mock<IEmailSender> EmailSender) CreateHandler(
-        User? user,
-        Payment? payment,
-        Ticket? ticket,
-        SocialEvent? socialEvent)
-    {
-        var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByIdAsync(It.IsAny<UserId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        var paymentsRepo = new Mock<IPaymentRepository>();
-        paymentsRepo.Setup(r => r.GetByIdAsync(It.IsAny<PaymentId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(payment);
-
-        var ticketsRepo = new Mock<ITicketRepository>();
-        ticketsRepo.Setup(r => r.GetByIdAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ticket);
-
-        var eventsRepo = new Mock<IEventRepository>();
-        eventsRepo.Setup(r => r.GetByIdAsync(It.IsAny<SocialEventId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(socialEvent);
-
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
-        uow.SetupGet(u => u.Payments).Returns(paymentsRepo.Object);
-        uow.SetupGet(u => u.Tickets).Returns(ticketsRepo.Object);
-        uow.SetupGet(u => u.Events).Returns(eventsRepo.Object);
-
-        var emailSender = new Mock<IEmailSender>();
-        emailSender
-            .Setup(s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        var handler = new PaymentFailedEventHandler(
-            uow.Object,
-            emailSender.Object,
-            NullLogger<PaymentFailedEventHandler>.Instance);
-
-        return (handler, emailSender);
+        return new SocialEvent(
+            eventId,
+            "Test Event",
+            "Description",
+            timeRange,
+            100,
+            EventStatus.Scheduled,
+            DefaultPrice);
     }
 
     [Fact]
     public async Task PaymentFailed_ForResolvedData_SendsEmail()
     {
-        var (paymentId, ticketId, userId) = CreateSeededData(out var user, out var payment, out var ticket);
-        var (handler, emailSender) = CreateHandler(user, payment, ticket, ticket.SocialEvent);
+        // Arrange
+        User user = User.Register("user@test.com", "Test", "User", "123456789");
+        SocialEvent socialEvent = CreateSocialEvent();
+        Ticket ticket = new Ticket(
+            TicketId.CreateUnique(),
+            socialEvent.Id,
+            socialEvent,
+            "A1",
+            DefaultPrice);
 
-        var domainEvent = new PaymentFailedEvent(paymentId, ticketId, userId, DateTime.UtcNow);
+        Payment payment = new Payment(
+            PaymentId.CreateUnique(),
+            ticket.Id,
+            user.Id,
+            DefaultPrice,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
 
+        payment.MarkFailed();
+
+        var emailSender = new Mock<IEmailSender>();
+        emailSender
+            .Setup(s => s.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<UserId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var paymentsRepositoryMock = new Mock<IPaymentRepository>();
+        paymentsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<PaymentId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
+
+        var ticketsRepositoryMock = new Mock<ITicketRepository>();
+        ticketsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<TicketId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+
+        var eventsRepositoryMock = new Mock<IEventRepository>();
+        eventsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<SocialEventId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(socialEvent);
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Payments).Returns(paymentsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Tickets).Returns(ticketsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Events).Returns(eventsRepositoryMock.Object);
+
+        var handler = new PaymentFailedEventHandler(
+            unitOfWorkMock.Object,
+            emailSender.Object,
+            NullLogger<PaymentFailedEventHandler>.Instance);
+
+        var domainEvent = new PaymentFailedEvent(
+            payment.Id,
+            ticket.Id,
+            user.Id,
+            DateTime.UtcNow);
+
+        // Act
         await handler.Handle(domainEvent, CancellationToken.None);
 
+        // Assert
         emailSender.Verify(
             s => s.SendAsync(
                 "user@test.com",
                 "Payment failed",
-                It.Is<string>(b => b.Contains("Test Event") && b.Contains("A1") && b.Contains("150") && b.Contains("PLN")),
+                It.Is<string>(b =>
+                    b.Contains("Test Event") &&
+                    b.Contains("A1") &&
+                    b.Contains("150") &&
+                    b.Contains("PLN")),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
-    public async Task PaymentFailed_WhenUserMissing_DoesNothing()
+    public async Task PaymentFailed_WhenUserMissing_DoesNotSendEmail()
     {
-        var (paymentId, ticketId, userId) = CreateSeededData(out _, out var payment, out var ticket);
-        var (handler, emailSender) = CreateHandler(user: null, payment, ticket, ticket.SocialEvent);
+        // Arrange
+        UserId userId = UserId.CreateUnique();
+        User? user = null;
+        SocialEvent socialEvent = CreateSocialEvent();
 
-        var domainEvent = new PaymentFailedEvent(paymentId, ticketId, userId, DateTime.UtcNow);
+        Ticket ticket = new Ticket(
+            TicketId.CreateUnique(),
+            socialEvent.Id,
+            socialEvent,
+            "A1",
+            DefaultPrice);
 
+        Payment payment = new Payment(
+            PaymentId.CreateUnique(),
+            ticket.Id,
+            userId,
+            DefaultPrice,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+
+        payment.MarkFailed();
+
+        var emailSender = new Mock<IEmailSender>();
+        emailSender
+            .Setup(s => s.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<UserId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var paymentsRepositoryMock = new Mock<IPaymentRepository>();
+        paymentsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<PaymentId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
+
+        var ticketsRepositoryMock = new Mock<ITicketRepository>();
+        ticketsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<TicketId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+
+        var eventsRepositoryMock = new Mock<IEventRepository>();
+        eventsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<SocialEventId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(socialEvent);
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Payments).Returns(paymentsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Tickets).Returns(ticketsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Events).Returns(eventsRepositoryMock.Object);
+
+        var handler = new PaymentFailedEventHandler(
+            unitOfWorkMock.Object,
+            emailSender.Object,
+            NullLogger<PaymentFailedEventHandler>.Instance);
+
+        var domainEvent = new PaymentFailedEvent(
+            payment.Id,
+            ticket.Id,
+            userId,
+            DateTime.UtcNow);
+
+        // Act
         await handler.Handle(domainEvent, CancellationToken.None);
 
+        // Assert
         emailSender.Verify(
-            s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            s => s.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task PaymentFailed_WhenSenderThrows_SwallowsException()
+    public async Task PaymentFailed_WhenSenderThrows_HandlesException()
     {
-        var (paymentId, ticketId, userId) = CreateSeededData(out var user, out var payment, out var ticket);
-        var (handler, emailSender) = CreateHandler(user, payment, ticket, ticket.SocialEvent);
+        // Arrange
+        User user = User.Register("user@test.com", "Test", "User", "123456789");
+        SocialEvent socialEvent = CreateSocialEvent();
+
+        Ticket ticket = new Ticket(
+            TicketId.CreateUnique(),
+            socialEvent.Id,
+            socialEvent,
+            "A1",
+            DefaultPrice);
+
+        Payment payment = new Payment(
+            PaymentId.CreateUnique(),
+            ticket.Id,
+            user.Id,
+            DefaultPrice,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+
+        payment.MarkFailed();
+
+        var emailSender = new Mock<IEmailSender>();
         emailSender
-            .Setup(s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.SendAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("SMTP down"));
 
-        var domainEvent = new PaymentFailedEvent(paymentId, ticketId, userId, DateTime.UtcNow);
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<UserId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
-        await handler.Handle(domainEvent, CancellationToken.None);
+        var paymentsRepositoryMock = new Mock<IPaymentRepository>();
+        paymentsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<PaymentId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(payment);
+
+        var ticketsRepositoryMock = new Mock<ITicketRepository>();
+        ticketsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<TicketId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+
+        var eventsRepositoryMock = new Mock<IEventRepository>();
+        eventsRepositoryMock
+            .Setup(r => r.GetByIdAsync(
+                It.IsAny<SocialEventId>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(socialEvent);
+
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Payments).Returns(paymentsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Tickets).Returns(ticketsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Events).Returns(eventsRepositoryMock.Object);
+
+        var handler = new PaymentFailedEventHandler(
+            unitOfWorkMock.Object,
+            emailSender.Object,
+            NullLogger<PaymentFailedEventHandler>.Instance);
+
+        var domainEvent = new PaymentFailedEvent(
+            payment.Id,
+            ticket.Id,
+            user.Id,
+            DateTime.UtcNow);
+
+        // Act
+        var exception = await Record.ExceptionAsync(
+            () => handler.Handle(domainEvent, CancellationToken.None));
+
+        // Assert
+        Assert.Null(exception);
     }
 }
