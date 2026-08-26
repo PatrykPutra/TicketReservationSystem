@@ -18,22 +18,28 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_ForValidInputs_ReturnsDecodableToken()
     {
+        // Arrange
         var service = new JwtService(Options.Create(Settings));
         var userId = UserId.CreateUnique();
 
+        // Act
         var token = service.GenerateToken(userId, "user@test.com");
 
+        // Assert
         Assert.IsType<JwtSecurityToken>(new JwtSecurityTokenHandler().ReadJwtToken(token));
     }
 
     [Fact]
     public void GenerateToken_ForValidInputs_SetsSubjectClaim()
     {
+        // Arrange
         var service = new JwtService(Options.Create(Settings));
         var userId = UserId.CreateUnique();
 
+        // Act
         var token = service.GenerateToken(userId, "user@test.com");
 
+        // Assert
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         Assert.Equal(userId.Value.ToString(), jwt.Payload[JwtRegisteredClaimNames.Sub].ToString());
     }
@@ -41,11 +47,14 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_ForValidInputs_SetsEmailClaim()
     {
+        // Arrange
         var service = new JwtService(Options.Create(Settings));
         var userId = UserId.CreateUnique();
 
+        // Act
         var token = service.GenerateToken(userId, "user@test.com");
 
+        // Assert
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         Assert.Equal("user@test.com", jwt.Payload[JwtRegisteredClaimNames.Email].ToString());
     }
@@ -53,11 +62,14 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_ForValidInputs_SetsIssuerAndAudience()
     {
+        // Arrange
         var service = new JwtService(Options.Create(Settings));
         var userId = UserId.CreateUnique();
 
+        // Act
         var token = service.GenerateToken(userId, "user@test.com");
 
+        // Assert
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         Assert.Equal("TestIssuer", jwt.Issuer);
         Assert.Equal("TestAudience", Assert.Single(jwt.Audiences));
@@ -66,11 +78,14 @@ public class JwtServiceTests
     [Fact]
     public void GenerateToken_ForValidInputs_SetsExpiry()
     {
+        // Arrange
         var service = new JwtService(Options.Create(Settings));
         var userId = UserId.CreateUnique();
 
+        // Act
         var token = service.GenerateToken(userId, "user@test.com");
 
+        // Assert
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         Assert.True(jwt.ValidTo > DateTime.UtcNow.AddMinutes(29));
         Assert.True(jwt.ValidTo <= DateTime.UtcNow.AddMinutes(30).AddSeconds(5));
