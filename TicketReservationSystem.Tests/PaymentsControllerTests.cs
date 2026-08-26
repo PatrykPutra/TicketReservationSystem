@@ -1,8 +1,8 @@
-using System.Reflection;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using System.Reflection;
+using System.Security.Claims;
 using TicketReservationSystem.API.Controllers;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
@@ -14,7 +14,19 @@ namespace TicketReservationSystem.Tests;
 
 public class PaymentsControllerTests
 {
-    private static readonly Guid UserIdValue = Guid.NewGuid();
+    private sealed record UnexpectedError(string Description) : Error("Unexpected", Description);
+    public static TheoryData<Error, int> ErrorResponseCases => new()
+    {
+        { new TicketNotReservedError("Not reserved"), 409 },
+        { new TicketNotAvailableError("Not available"), 409 },
+        { new DuplicatePaymentError("Duplicate"), 409 },
+        { new UnauthorizedUserError("Forbidden"), 401 },
+        { new NotFoundError("Missing"), 404 },
+        { new CurrencyMismatchError("Mismatch"), 400 },
+        { new UnsupportedCurrencyError("Unsupported"), 400},
+        { new UnexpectedError("Unexpected"), 500 }
+
+    };
 
     private static PaymentsController CreateController(Action<Mock<ICommandDispatcher>>? commandSetup = null)
     {
@@ -31,136 +43,121 @@ public class PaymentsControllerTests
         return controller;
     }
 
-    private static void SetAuthenticatedUser(ControllerBase controller, Guid? userId = null)
+    [Fact]
+    public async Task CreateCheckout_WhenIdClaimMissing_ReturnsUnauthorized()
     {
-        var claims = userId is null
-            ? Array.Empty<Claim>()
-            : new[] { new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString()) };
+        // Arrange
+        Guid UserIdValue = Guid.NewGuid();
+        var controller = CreateController();
+        var claims = Array.Empty<Claim>();
         var identity = new ClaimsIdentity(claims, "TestAuth");
         controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
-    }
 
-    [Fact]
-    public async Task CreateCheckout_WhenClaimMissing_ReturnsUnauthorized()
-    {
-        var controller = CreateController();
-        SetAuthenticatedUser(controller);
-
+        // Act
         var result = await controller.CreateCheckout(new PaymentCheckoutRequest
         {
             TicketId = Guid.NewGuid(),
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
-    public async Task CreateCheckout_WhenClaimDoesNotMatchUserId_ReturnsUnauthorized()
+    public async Task CreateCheckout_WhenIdClaimDoesNotMatchUserId_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
-        SetAuthenticatedUser(controller, Guid.NewGuid());
 
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
+
+        // Act
         var result = await controller.CreateCheckout(new PaymentCheckoutRequest
         {
             TicketId = Guid.NewGuid(),
-            UserId = UserIdValue
+            UserId = Guid.NewGuid()
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
-    public async Task CreateCheckout_WhenAllMatch_ReturnsOk()
+    public async Task CreateCheckout_ForCorrectRequest_ReturnsOk()
     {
+        // Arrange
+        Guid userIdValue = Guid.NewGuid();
         var paymentId = PaymentId.CreateUnique();
         var controller = CreateController(commandSetup: mock =>
         {
             mock.Setup(d => d.DispatchAsync<CreateCheckoutCommand, CreateCheckoutResult>(It.IsAny<CreateCheckoutCommand>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(CreateCheckoutResult.Success("https://checkout.example.com", "cs_test_123", paymentId));
         });
-        SetAuthenticatedUser(controller, UserIdValue);
 
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, userIdValue.ToString()) };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
+
+        // Act
         var result = await controller.CreateCheckout(new PaymentCheckoutRequest
         {
             TicketId = Guid.NewGuid(),
-            UserId = UserIdValue
+            UserId = userIdValue
         });
 
+        // Assert
         Assert.IsType<OkObjectResult>(result);
     }
 
-    private static async Task<IActionResult> CreateCheckoutWithError(Error error)
+    private static async Task<IActionResult> CreateFailedCheckoutResult(Error error)
     {
+        Guid userIdValue = Guid.NewGuid();
         var controller = CreateController(commandSetup: mock =>
         {
             mock.Setup(d => d.DispatchAsync<CreateCheckoutCommand, CreateCheckoutResult>(It.IsAny<CreateCheckoutCommand>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new CreateCheckoutResult(error));
         });
-        SetAuthenticatedUser(controller, UserIdValue);
+
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, userIdValue.ToString()) };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
 
         return await controller.CreateCheckout(new PaymentCheckoutRequest
         {
             TicketId = Guid.NewGuid(),
-            UserId = UserIdValue
+            UserId = userIdValue
         });
     }
 
-    [Fact]
-    public async Task CreateCheckout_WhenTicketNotReserved_ReturnsConflict()
+    [Theory]
+    [MemberData(nameof(ErrorResponseCases))]
+    public async Task CreateCheckout_ForErrorResult_ReturnsProperResponseCode(Error error, int expectedStatusCode)
     {
-        var result = await CreateCheckoutWithError(new TicketNotReservedError("Not reserved"));
-        Assert.IsType<ConflictResult>(result);
-    }
+        // Arrange
+        Guid userIdValue = Guid.NewGuid();
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<CreateCheckoutCommand, CreateCheckoutResult>(It.IsAny<CreateCheckoutCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new CreateCheckoutResult(error));
+        });
 
-    [Fact]
-    public async Task CreateCheckout_WhenTicketNotAvailable_ReturnsConflict()
-    {
-        var result = await CreateCheckoutWithError(new TicketNotAvailableError("Not available"));
-        Assert.IsType<ConflictResult>(result);
-    }
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, userIdValue.ToString()) };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(identity);
 
-    [Fact]
-    public async Task CreateCheckout_WhenDuplicatePayment_ReturnsConflict()
-    {
-        var result = await CreateCheckoutWithError(new DuplicatePaymentError("Duplicate"));
-        Assert.IsType<ConflictResult>(result);
-    }
+        // Act
+        var result = await controller.CreateCheckout(new PaymentCheckoutRequest
+        {
+            TicketId = Guid.NewGuid(),
+            UserId = userIdValue
+        });
 
-    [Fact]
-    public async Task CreateCheckout_WhenUnauthorizedUserError_ReturnsUnauthorized()
-    {
-        var result = await CreateCheckoutWithError(new UnauthorizedUserError("Forbidden"));
-        Assert.IsType<UnauthorizedResult>(result);
-    }
-
-    [Fact]
-    public async Task CreateCheckout_WhenNotFoundError_ReturnsNotFound()
-    {
-        var result = await CreateCheckoutWithError(new NotFoundError("Missing"));
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task CreateCheckout_WhenCurrencyMismatch_ReturnsBadRequest()
-    {
-        var result = await CreateCheckoutWithError(new CurrencyMismatchError("Mismatch"));
-        Assert.IsType<BadRequestResult>(result);
-    }
-
-    [Fact]
-    public async Task CreateCheckout_WhenUnsupportedCurrency_ReturnsBadRequest()
-    {
-        var result = await CreateCheckoutWithError(new UnsupportedCurrencyError("Unsupported"));
-        Assert.IsType<BadRequestResult>(result);
-    }
-
-    [Fact]
-    public async Task CreateCheckout_WhenUnexpectedError_Returns500()
-    {
-        var result = await CreateCheckoutWithError(new InvalidCredentialsError("Unexpected"));
-        var statusCode = Assert.IsType<StatusCodeResult>(result);
-        Assert.Equal(500, statusCode.StatusCode);
+        // Assert
+        var statusCode = Assert.IsAssignableFrom<StatusCodeResult>(result);
+        Assert.Equal(expectedStatusCode, statusCode.StatusCode);
     }
 
     [Fact]

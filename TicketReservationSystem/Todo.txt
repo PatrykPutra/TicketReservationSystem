@@ -18,33 +18,6 @@
 Tests refactoring:
 - Variable names should be expressive and self-explanatory, don’t use acronyms or half words
 
-ExpiredPaymentCleanupJobTests:
-- get rid of helper methods and make tests to arrange test scenario individualy
-- redesign Execute_FilterPredicate_SelectsStalePendingAndExcludesFreshAndNonPending() to be case not fact
-- what is going on with this test scenario Execute_ForStalePayment_WhenTicketMissing_StillMarksExpired()
-ExpiredReservationsCleanupJobTests:
-- get rid of helper methods and make test self-arranged
-- divide Execute_FilterPredicate_SelectsExpiredReservedAndExcludesFreshAndAvailable into separate scenarios
-- divide Execute_ForExpiredReservation_ReleasesTicket into separate scenarios
-- change name Execute_WithPendingPayment_SkipsTicket to Execute_ForTicketWithPendingPayment_PersistsTicketReservation
-TicketReservationSystem:
-- get rid of helper method and make tests self-arranged
-- change name GetEventById_ForExistingEvent_ReturnsMappedDto to GetEventById_ForExistingEvent_ReturnsEventDto
-TicketReservationSystem:
-- change name GetTicketById_ForExistingTicket_ReturnsMappedDto to GetTicketById_ForExistingTicket_ReturnsTicketDto
-JwtServiceTests:
-- change magic numbers into constants
-- divide GenerateToken_ForValidInputs_SetsIssuerAndAudience into two separate scenarios
-PaymentCompletedEventHandlerTests:
-- get rid of helper methods and make tests self-arranged
-- adjust naming PaymentCompleted_WhenUserMissing_DoesNothing()
-- adjust naming PaymentCompleted_WhenSenderThrows_SwallowsException
-- verify test scenario of PaymentCompleted_WhenSenderThrows_SwallowsException
-PaymentFailedEventHandlerTests:
-- get rid of helper methods and make tests self-arranged
-- adjust naming PaymentFailed_WhenUserMissing_DoesNothing
-- adjust naming PaymentFailed_WhenSenderThrows_SwallowsException
-- verify logic PaymentFailed_WhenSenderThrows_SwallowsException
 PaymentTests:
 - get rid of helper methods and make tests self-arranged
 - divide Payment_ForValidInputs_IsPendingWithSnapshot into separate scenarios
