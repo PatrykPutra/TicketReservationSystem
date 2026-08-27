@@ -8,119 +8,292 @@ namespace TicketReservationSystem.Tests;
 
 public class PaymentTests
 {
-    private static readonly Money Amount = new(150, "PLN");
+    private static readonly Money DefaultAmount = new(150, "PLN");
 
-    private static Payment CreatePendingPayment()
+    [Fact]
+    public void Payment_ForNewlyCreatedPayment_PaymentStatusIsPending()
     {
-        return new Payment(
+        // Arrange & Act
+        var payment = new Payment(
             PaymentId.CreateUnique(),
             TicketId.CreateUnique(),
             UserId.CreateUnique(),
-            Amount,
+            DefaultAmount,
             PaymentProvider.Stripe,
             DateTime.UtcNow);
-    }
 
-    [Fact]
-    public void Payment_ForValidInputs_IsPendingWithSnapshot()
-    {
-        var payment = CreatePendingPayment();
-
+        // Assert
         Assert.Equal(PaymentStatus.Pending, payment.Status);
-        Assert.Equal(Amount, payment.Amount);
-        Assert.Equal(PaymentProvider.Stripe, payment.PaymentProvider);
     }
 
     [Fact]
-    public void SetExternalId_ForValidValue_UpdatesExternalReference()
+    public void Payment_ForNewlyCreatedPayment_PropertiesAreSetCorrectly()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var paymentId = PaymentId.CreateUnique();
+        var ticketId = TicketId.CreateUnique();
+        var userId = UserId.CreateUnique();
+        var paymentProvider = PaymentProvider.Stripe;
+        var createdAt = DateTime.UtcNow;
 
+        // Act
+        var payment = new Payment(
+            paymentId,
+            ticketId,
+            userId,
+            DefaultAmount,
+            paymentProvider,
+            createdAt);
+
+        // Assert
+        Assert.Equal(paymentId, payment.Id);
+        Assert.Equal(ticketId, payment.TicketId);
+        Assert.Equal(userId, payment.UserId);
+        Assert.Equal(DefaultAmount, payment.Amount);
+        Assert.Equal(paymentProvider, payment.PaymentProvider);
+        Assert.Equal(createdAt, payment.CreatedAt);
+    }
+
+    [Fact]
+    public void SetExternalId_ForValidValue_ExternalIdIsSetCorrectly()
+    {
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+        
+        // Act
         payment.SetExternalId("cs_test_123");
 
+        // Assert
         Assert.Equal("cs_test_123", payment.ExternalId);
     }
 
     [Fact]
-    public void MarkCompleted_OnPendingPayment_SetsCompleted()
+    public void MarkCompleted_ForPendingPayment_SetsStatusToCompleted()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
 
+        // Act
         payment.MarkCompleted();
 
+        // Assert
         Assert.Equal(PaymentStatus.Completed, payment.Status);
     }
 
     [Fact]
-    public void MarkCompleted_OnPendingPayment_RaisesCompletedEvent()
+    public void MarkCompleted_ForPendingPayment_RaisesPaymentCompletedEvent()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+
         var userId = payment.UserId;
 
+        // Act
         payment.MarkCompleted();
 
+        // Assert
         var domainEvent = payment.DomainEvents.OfType<PaymentCompletedEvent>().Single();
+        Assert.NotNull(domainEvent);
         Assert.Equal(userId, domainEvent.UserId);
         Assert.Equal(payment.Id, domainEvent.PaymentId);
     }
 
     [Fact]
-    public void MarkFailed_OnPendingPayment_SetsFailed()
+    public void MarkCompleted_WhenPaymentCompletedEventIsRaised_EventPropertiesAseSerCorrectly()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
 
+        var userId = payment.UserId;
+
+        // Act
+        payment.MarkCompleted();
+
+        // Assert
+        var domainEvent = payment.DomainEvents.OfType<PaymentCompletedEvent>().Single();
+        Assert.Equal(userId, domainEvent.UserId);
+        Assert.Equal(payment.Id, domainEvent.PaymentId);
+    }
+
+
+
+    [Fact]
+    public void MarkFailed_ForPendingPayment_SetsStatusToFailed()
+    {
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+
+        // Act
         payment.MarkFailed();
 
+        // Assert
         Assert.Equal(PaymentStatus.Failed, payment.Status);
     }
 
     [Fact]
-    public void MarkFailed_OnPendingPayment_RaisesFailedEvent()
+    public void MarkFailed_ForPendingPayment_RaisesFailedEvent()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
 
+        // Act
         payment.MarkFailed();
 
+        // Assert
+        var domainEvent = payment.DomainEvents.OfType<PaymentFailedEvent>().Single();
+        Assert.NotNull(domainEvent);
+    }
+
+    [Fact]
+    public void MarkFailed_WhenPaymentFailedEventIsRaised_EventPropertiesAreSetCorrectly()
+    {
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+
+        // Act
+        payment.MarkFailed();
+
+        // Assert
         var domainEvent = payment.DomainEvents.OfType<PaymentFailedEvent>().Single();
         Assert.Equal(payment.Id, domainEvent.PaymentId);
     }
 
     [Fact]
-    public void MarkExpired_OnPendingPayment_SetsExpired()
+    public void MarkExpired_ForPendingPayment_SetsStatusToExpired()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
 
+        // Act
         payment.MarkExpired();
 
+        // Assert
         Assert.Equal(PaymentStatus.Expired, payment.Status);
     }
 
     [Fact]
-    public void MarkExpired_OnPendingPayment_RaisesExpiredEvent()
+    public void MarkExpired_ForPendingPayment_RaisesPaymentExpiredEvent()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
 
+        // Act
         payment.MarkExpired();
 
+        // Assert
+        var domainEvent = payment.DomainEvents.OfType<PaymentExpiredEvent>().Single();
+        Assert.NotNull(domainEvent);
+    }
+
+    [Fact]
+    public void MarkExpired_WhenPaymentExpiredEventIsRaised_EventPropertiesAreSetCorrectly()
+    {
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+
+        // Act
+        payment.MarkExpired();
+
+        // Assert
         var domainEvent = payment.DomainEvents.OfType<PaymentExpiredEvent>().Single();
         Assert.Equal(payment.Id, domainEvent.PaymentId);
     }
 
     [Fact]
-    public void MarkCompleted_OnCompletedPayment_Throws()
+    public void MarkCompleted_ForCompletedPayment_ThrowsPaymentStatusException()
     {
-        var payment = CreatePendingPayment();
+        //  Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+        
+        // Act
         payment.MarkCompleted();
 
+        // Assert
         Assert.Throws<PaymentStatusException>(() => payment.MarkCompleted());
     }
 
     [Fact]
-    public void MarkExpired_OnCompletedPayment_Throws()
+    public void MarkExpired_ForCompletedPayment_ThrowsPaymentStatusException()
     {
-        var payment = CreatePendingPayment();
+        // Arrange
+        var payment = new Payment(
+            PaymentId.CreateUnique(),
+            TicketId.CreateUnique(),
+            UserId.CreateUnique(),
+            DefaultAmount,
+            PaymentProvider.Stripe,
+            DateTime.UtcNow);
+        
+        // Act
         payment.MarkCompleted();
 
+        // Assert
         Assert.Throws<PaymentStatusException>(() => payment.MarkExpired());
     }
 }
