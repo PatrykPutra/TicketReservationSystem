@@ -2,7 +2,6 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Stripe.Checkout;
 using Stripe;
-using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.ValueObjects;
@@ -14,7 +13,7 @@ public class StripePaymentsServiceTests
 {
     private static readonly PaymentId PaymentId = PaymentId.CreateUnique();
 
-    private static StripePaymentsService CreateService(string currency, Mock<SessionService>? sessionService = null)
+    private static StripePaymentsService CreateStripePaymentService(string currency, Mock<SessionService>? sessionService = null)
     {
         var settings = Options.Create(new StripeSettings { Currency = currency });
         return new StripePaymentsService(settings, sessionService?.Object);
@@ -30,23 +29,29 @@ public class StripePaymentsServiceTests
     }
 
     [Fact]
-    public async Task CreateCheckoutSessionAsync_OnCurrencyMismatch_ReturnsFailedResult()
+    public async Task CreateCheckoutSessionAsync_ForCurrencyMismatchError_ReturnsFailedResult()
     {
-        var service = CreateService("PLN");
+        // Arrange
+        var service = CreateStripePaymentService("PLN");
 
+        // Act
         var result = await service.CreateCheckoutSessionAsync(new Money(100, "USD"), PaymentId);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.IsType<CurrencyMismatchError>(result.Error);
     }
 
     [Fact]
-    public async Task CreateCheckoutSessionAsync_ForUnknownCurrency_ReturnsUnsupportedCurrency()
+    public async Task CreateCheckoutSessionAsync_ForUnknownCurrency_ReturnsUnsupportedCurrencyErrorResult()
     {
-        var service = CreateService("XYZ");
+        // Arrange
+        var service = CreateStripePaymentService("XYZ");
 
+        // Act
         var result = await service.CreateCheckoutSessionAsync(new Money(100, "XYZ"), PaymentId);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.IsType<UnsupportedCurrencyError>(result.Error);
     }
@@ -54,11 +59,18 @@ public class StripePaymentsServiceTests
     [Fact]
     public async Task CreateCheckoutSessionAsync_ForZeroDecimalCurrency_UsesDivisor1()
     {
-        var sessionService = CreateSessionServiceMock();
-        var service = CreateService("JPY", sessionService);
+        // Arrange
+        var sessionService = new Mock<SessionService>();
+        sessionService
+            .Setup(s => s.CreateAsync(It.IsAny<SessionCreateOptions>(), It.IsAny<RequestOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Session { Url = "https://checkout.url", Id = "cs_test_123" });
 
+        var service = CreateStripePaymentService("JPY", sessionService);
+
+        // Act
         var result = await service.CreateCheckoutSessionAsync(new Money(100, "JPY"), PaymentId);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var options = (SessionCreateOptions)sessionService.Invocations[0].Arguments[0];
         Assert.Equal(100, options.LineItems[0].PriceData.UnitAmount);
@@ -68,11 +80,14 @@ public class StripePaymentsServiceTests
     [Fact]
     public async Task CreateCheckoutSessionAsync_ForTwoDecimalCurrency_UsesDivisor100()
     {
+        // Arrange
         var sessionService = CreateSessionServiceMock();
-        var service = CreateService("PLN", sessionService);
+        var service = CreateStripePaymentService("PLN", sessionService);
 
+        // Act
         var result = await service.CreateCheckoutSessionAsync(new Money(150, "PLN"), PaymentId);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var options = (SessionCreateOptions)sessionService.Invocations[0].Arguments[0];
         Assert.Equal(15000, options.LineItems[0].PriceData.UnitAmount);

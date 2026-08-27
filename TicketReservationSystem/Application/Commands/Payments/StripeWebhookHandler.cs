@@ -1,8 +1,6 @@
 using Stripe.Checkout;
-using Stripe;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Errors;
-using TicketReservationSystem.Domain.Entities;
 using TicketReservationSystem.Domain.Ids;
 using TicketReservationSystem.Domain.Repositories;
 
@@ -34,7 +32,7 @@ namespace TicketReservationSystem.Application.Commands.Payments
                 case PaymentIntentPaymentFailed:
                     break;
                 default:
-                    return Result.Success();
+                    return Result.Failure(new PaymentProcessingError("Not supported event type."));
             }
 
             if (stripeEvent.Data.Object is not Session session)
@@ -83,7 +81,7 @@ namespace TicketReservationSystem.Application.Commands.Payments
                     break;
 
                 default:
-                    return Result.Success();
+                    return Result.Failure(new PaymentProcessingError("Not supported event type."));
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);

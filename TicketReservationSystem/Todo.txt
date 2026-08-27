@@ -18,21 +18,6 @@
 Tests refactoring:
 - Variable names should be expressive and self-explanatory, don’t use acronyms or half words
 
-PaymentTests:
-- get rid of helper methods and make tests self-arranged
-- divide Payment_ForValidInputs_IsPendingWithSnapshot into separate scenarios
-PaymentsControllerTests:
-- get rid of helper methods and make tests self-arranged
-- change naming, replace when with for
-QueryDispatcherTests:
-- divide ExecuteAsync_ForQuery_ForwardsToMediatorAndReturnsResult into two separate scenarios
-SendAuthenticationCodeEmailHandlerTests:
-- change name SendAuthenticationCodeEmail_ForCodeEvent_SendsCodeEmail to SendAuthenticationCodeEmail_ForAuthenticationCodeGeneratedEvent_SendsEmail
-- adjust naming SendAuthenticationCodeEmail_WhenSenderThrows_SwallowsException to SendAuthenticationCodeEmail_WhenSenderThrows_HandlesException
-StripePaymentsServiceTests:
-- get rid of helper methods and make tests self-arranged
-- add more cases to CreateCheckoutSessionAsync_ForZeroDecimalCurrency_UsesDivisor1
-- add more cases to CreateCheckoutSessionAsync_ForTwoDecimalCurrency_UsesDivisor100
 StripeWebhookHandlerTests:
 - get rid of helper methods and make tests self-arranged
 TicketCancelationHandlerTests:
