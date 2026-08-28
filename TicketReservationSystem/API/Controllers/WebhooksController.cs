@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using Stripe;
+using TicketReservationSystem.API.Helpers;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Payments;
 using TicketReservationSystem.Infrastructure.Services.Payments;
@@ -14,12 +14,12 @@ namespace TicketReservationSystem.API.Controllers
     public class WebhooksController : ControllerBase
     {
         private readonly ICommandDispatcher _commandDispatcher;
-        private readonly StripeSettings _stripeSettings;
+        private readonly IStripeHelperService _stripeHelperService;
 
-        public WebhooksController(ICommandDispatcher commandDispatcher, IOptions<StripeSettings> stripeSettings)
+        public WebhooksController(ICommandDispatcher commandDispatcher, IStripeHelperService stripeHelperService)
         {
             _commandDispatcher = commandDispatcher;
-            _stripeSettings = stripeSettings.Value;
+            _stripeHelperService = stripeHelperService;
         }
 
         [HttpPost("stripe")]
@@ -37,7 +37,7 @@ namespace TicketReservationSystem.API.Controllers
             Stripe.Event stripeEvent;
             try
             {
-                stripeEvent = EventUtility.ConstructEvent(json, signatureHeader, _stripeSettings.WebhookSecret);
+                stripeEvent = _stripeHelperService.ConstructEvent(json, signatureHeader!);
             }
             catch (StripeException)
             {

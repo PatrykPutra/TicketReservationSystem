@@ -1,7 +1,8 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using System.Text;
+using TicketReservationSystem.API.Helpers;
 using TicketReservationSystem.API.Middleware;
 using TicketReservationSystem.Application;
 using TicketReservationSystem.Application.Authentication;
@@ -39,6 +40,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddScoped<IStripeHelperService, StripeHelperService>();
 
 var app = builder.Build();
 
