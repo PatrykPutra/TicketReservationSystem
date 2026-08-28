@@ -14,105 +14,130 @@ public class TicketReservedEventHandlerTests
 {
     private static readonly Money DefaultPrice = new(150, "PLN");
 
-    private static (SocialEventId EventId, TicketId TicketId, UserId UserId) CreateSeededData(
-        out User user,
-        out Ticket ticket)
+    private static SocialEvent CreateSocialEvent()
     {
         var eventId = SocialEventId.CreateUnique();
-        var ticketId = TicketId.CreateUnique();
-        var userId = UserId.CreateUnique();
-
         var timeRange = new DateTimeRange(
             DateTime.UtcNow.AddDays(30),
             DateTime.UtcNow.AddDays(30).AddHours(4));
-        var socialEvent = new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
-        ticket = new Ticket(ticketId, eventId, socialEvent, "A1", DefaultPrice);
-        ticket.Reserve(userId);
-        user = User.Register("user@test.com", "Test", "User", "123456789");
-
-        return (eventId, ticketId, userId);
+        return new SocialEvent(eventId, "Test Event", "Description", timeRange, 100, EventStatus.Scheduled, DefaultPrice);
+    }
+    private static Ticket CreateTicket(SocialEvent socialEvent)
+    {
+        var ticketId = TicketId.CreateUnique();
+        return new Ticket(ticketId, socialEvent.Id, socialEvent, "A1", DefaultPrice);
     }
 
-    private static (TicketReservedEventHandler Handler, Mock<IEmailSender> EmailSender) CreateHandler(
-        User? user,
-        Ticket? ticket,
-        SocialEvent? socialEvent)
+    private static Ticket CreateReservedTicket(SocialEvent socialEvent)
     {
-        var usersRepo = new Mock<IUserRepository>();
-        usersRepo.Setup(r => r.GetByIdAsync(It.IsAny<UserId>(), It.IsAny<CancellationToken>()))
+        var ticket = CreateTicket(socialEvent);
+        ticket.Reserve(UserId.CreateUnique());
+        return ticket;
+    }
+
+    private static TicketReservedEventHandler CreateHandler(User? user, Ticket? ticket, SocialEvent? socialEvent, IEmailSender emailSender)
+    {
+        var usersRepositoryMock = new Mock<IUserRepository>();
+        usersRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<UserId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        var ticketsRepo = new Mock<ITicketRepository>();
-        ticketsRepo.Setup(r => r.GetByIdAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+        var ticketsRepositoryMock = new Mock<ITicketRepository>();
+        ticketsRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(ticket);
 
-        var eventsRepo = new Mock<IEventRepository>();
-        eventsRepo.Setup(r => r.GetByIdAsync(It.IsAny<SocialEventId>(), It.IsAny<CancellationToken>()))
+        var eventsRepositoryMock = new Mock<IEventRepository>();
+        eventsRepositoryMock.Setup(r => r.GetByIdAsync(It.IsAny<SocialEventId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(socialEvent);
 
-        var uow = new Mock<IUnitOfWork>();
-        uow.SetupGet(u => u.Users).Returns(usersRepo.Object);
-        uow.SetupGet(u => u.Tickets).Returns(ticketsRepo.Object);
-        uow.SetupGet(u => u.Events).Returns(eventsRepo.Object);
+        var unitOfWorkMock = new Mock<IUnitOfWork>();
+        unitOfWorkMock.SetupGet(u => u.Users).Returns(usersRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Tickets).Returns(ticketsRepositoryMock.Object);
+        unitOfWorkMock.SetupGet(u => u.Events).Returns(eventsRepositoryMock.Object);
 
-        var emailSender = new Mock<IEmailSender>();
-        emailSender
-            .Setup(s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
         var handler = new TicketReservedEventHandler(
-            uow.Object,
-            emailSender.Object,
+            unitOfWorkMock.Object,
+            emailSender,
             NullLogger<TicketReservedEventHandler>.Instance);
 
-        return (handler, emailSender);
+        return handler;
     }
 
     [Fact]
     public async Task TicketReserved_ForResolvedData_SendsEmail()
     {
-        var (eventId, ticketId, userId) = CreateSeededData(out var user, out var ticket);
-        var (handler, emailSender) = CreateHandler(user, ticket, ticket.SocialEvent);
+        // Arrange
+        var user = User.Register("user@test.com", "Test", "User", "123456789");
+        var ticket = CreateReservedTicket(CreateSocialEvent());
 
-        var domainEvent = new TicketReservedEvent(ticketId, userId, eventId);
+        var emailSenderMock = new Mock<IEmailSender>();
+        emailSenderMock
+            .Setup(s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
+        var handler = CreateHandler(user, ticket, ticket.SocialEvent, emailSenderMock.Object);
+
+        var domainEvent = new TicketReservedEvent(ticket.Id, user.Id, ticket.EventId);
+
+        // Act
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        emailSender.Verify(
+        // Assert
+        emailSenderMock.Verify(
             s => s.SendAsync(
-                "user@test.com",
+                user.Email,
                 "Ticket reserved",
-                It.Is<string>(b => b.Contains("Test Event") && b.Contains("A1")),
+                It.Is<string>(b => b.Contains(ticket.SocialEvent.Name) && b.Contains(ticket.SeatNumber)),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
     [Fact]
-    public async Task TicketReserved_WhenUserMissing_DoesNothing()
+    public async Task TicketReserved_WhenUserNotFound_DoesNotSendEmail()
     {
-        var (eventId, ticketId, _) = CreateSeededData(out _, out var ticket);
-        var (handler, emailSender) = CreateHandler(null, ticket, ticket.SocialEvent);
+        // Arrange
+        UserId userId = UserId.CreateUnique();
+        User? user = null;
+        var ticket = CreateReservedTicket(CreateSocialEvent());
 
-        var domainEvent = new TicketReservedEvent(ticketId, null, eventId);
+        var emailSenderMock = new Mock<IEmailSender>();
+        emailSenderMock
+            .Setup(s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
+        var handler = CreateHandler(user, ticket, ticket.SocialEvent, emailSenderMock.Object);
+
+        var domainEvent = new TicketReservedEvent(ticket.Id, userId, ticket.EventId);
+
+        // Act
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        emailSender.Verify(
+        // Assert
+        emailSenderMock.Verify(
             s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task TicketReserved_WhenSenderThrows_SwallowsException()
+    public async Task TicketReserved_WhenSenderThrows_HandlesException()
     {
-        var (eventId, ticketId, userId) = CreateSeededData(out var user, out var ticket);
-        var (handler, emailSender) = CreateHandler(user, ticket, ticket.SocialEvent);
-        emailSender
+        // Arrange
+        var user = User.Register("user@test.com", "Test", "User", "123456789");
+        var ticket = CreateReservedTicket(CreateSocialEvent());
+
+        var emailSenderMock = new Mock<IEmailSender>();
+        emailSenderMock
             .Setup(s => s.SendAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("SMTP down"));
 
-        var domainEvent = new TicketReservedEvent(ticketId, userId, eventId);
+        var handler = CreateHandler(user, ticket, ticket.SocialEvent, emailSenderMock.Object);
 
-        await handler.Handle(domainEvent, CancellationToken.None);
+        var domainEvent = new TicketReservedEvent(ticket.Id, user.Id, ticket.EventId);
+
+        // Act
+        var exception = await Record.ExceptionAsync(() => handler.Handle(domainEvent, CancellationToken.None));
+
+        // Assert
+        Assert.Null(exception);
     }
 }
