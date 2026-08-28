@@ -1,9 +1,9 @@
-using System.Reflection;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using System.Reflection;
+using System.Security.Claims;
 using TicketReservationSystem.API.Controllers;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Commands.Tickets;
@@ -20,6 +20,8 @@ public class TicketsControllerTests
 {
     private static readonly Guid UserIdValue = Guid.NewGuid();
     private static readonly Guid TicketIdValue = Guid.NewGuid();
+
+    private sealed record UnexpectedError(string Description) : Error("Unexpected", Description);
 
     private static TicketsController CreateController(
         Action<Mock<IQueryDispatcher>>? querySetup = null,
@@ -59,46 +61,55 @@ public class TicketsControllerTests
     [Fact]
     public void GetTicketById_HasAllowAnonymousAttribute_ReturnsTrue()
     {
+        // Arrange && Act
         var attribute = typeof(TicketsController)
             .GetMethod(nameof(TicketsController.GetTicketById))
             ?.GetCustomAttribute<AllowAnonymousAttribute>();
 
+        // Assert
         Assert.NotNull(attribute);
     }
 
     [Fact]
     public void GetTicketByEvent_HasAllowAnonymousAttribute_ReturnsTrue()
     {
+        // Arrange && Act
         var attribute = typeof(TicketsController)
             .GetMethod(nameof(TicketsController.GetTicketByEvent))
             ?.GetCustomAttribute<AllowAnonymousAttribute>();
 
+        // Assert
         Assert.NotNull(attribute);
     }
 
     [Fact]
     public void Reserve_HasNoAllowAnonymousAttribute_ReturnsTrue()
     {
+        // Arrange && Act
         var attribute = typeof(TicketsController)
             .GetMethod(nameof(TicketsController.Reserve))
             ?.GetCustomAttribute<AllowAnonymousAttribute>();
 
+        // Assert
         Assert.Null(attribute);
     }
 
     [Fact]
     public void Cancel_HasNoAllowAnonymousAttribute_ReturnsTrue()
     {
+        // Arrange && Act
         var attribute = typeof(TicketsController)
             .GetMethod(nameof(TicketsController.Cancel))
             ?.GetCustomAttribute<AllowAnonymousAttribute>();
 
+        // Assert
         Assert.Null(attribute);
     }
 
     [Fact]
     public async Task GetTicketById_WhenTicketFound_ReturnsOk()
     {
+        // Arrange
         var ticketDto = new TicketDto(
             TicketId.Create(TicketIdValue),
             SocialEventId.CreateUnique(),
@@ -114,8 +125,10 @@ public class TicketsControllerTests
                 .ReturnsAsync(new GetTicketByIdResult(ticketDto));
         });
 
+        // Act
         var result = await controller.GetTicketById(TicketIdValue);
 
+        // Assert
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Same(ticketDto, ok.Value);
     }
@@ -123,6 +136,7 @@ public class TicketsControllerTests
     [Fact]
     public async Task GetTicketById_WhenTicketMissing_ReturnsNotFound()
     {
+        // Arrange
         var controller = CreateController(querySetup: mock =>
         {
             mock.Setup(d => d.ExecuteAsync<GetTicketByIdQuery, GetTicketByIdResult>(
@@ -130,14 +144,17 @@ public class TicketsControllerTests
                 .ReturnsAsync(new GetTicketByIdResult(null));
         });
 
+        // Act
         var result = await controller.GetTicketById(TicketIdValue);
 
+        // Assert
         Assert.IsType<NotFoundResult>(result);
     }
 
     [Fact]
     public async Task GetTicketByEvent_ForExistingTickets_ReturnsOkWithTickets()
     {
+        // Arrange
         var tickets = new List<TicketDto>
         {
             new(TicketId.CreateUnique(), SocialEventId.CreateUnique(), "A1", TicketStatus.Available, null, 150m, "PLN")
@@ -149,8 +166,10 @@ public class TicketsControllerTests
                 .ReturnsAsync(new GetTicketsByEventResult(tickets));
         });
 
+        // Act
         var result = await controller.GetTicketByEvent(Guid.NewGuid());
 
+        // Assert
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Same(tickets, ok.Value);
     }
@@ -158,66 +177,79 @@ public class TicketsControllerTests
     [Fact]
     public async Task Reserve_WhenTicketIdDoesNotMatchPath_ReturnsBadRequest()
     {
+        // Arrange
         var controller = CreateController();
         SetAuthenticatedUser(controller, UserIdValue);
 
+        // Act
         var result = await controller.Reserve(Guid.NewGuid(), new TicketReservationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<BadRequestResult>(result);
     }
 
     [Fact]
     public async Task Reserve_WhenClaimMissing_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
         SetAuthenticatedUser(controller);
 
+        // Act
         var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
     public async Task Reserve_WhenClaimMalformed_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
         SetRawClaim(controller, "not-a-guid");
 
+        // Act
         var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
     public async Task Reserve_WhenClaimDoesNotMatchUserId_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
         SetAuthenticatedUser(controller, Guid.NewGuid());
 
+        // Act
         var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
-    public async Task Reserve_WhenAllMatch_ReturnsOk()
+    public async Task Reserve_ForSuccessResult_ReturnsOk()
     {
+        // Arrange
         var ticketId = TicketId.Create(TicketIdValue);
         var controller = CreateController(commandSetup: mock =>
         {
@@ -226,78 +258,93 @@ public class TicketsControllerTests
         });
         SetAuthenticatedUser(controller, UserIdValue);
 
+        // Act
         var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
     public async Task Cancel_WhenTicketIdDoesNotMatchPath_ReturnsBadRequest()
     {
+        // Arrange
         var controller = CreateController();
         SetAuthenticatedUser(controller, UserIdValue);
 
+        // Act
         var result = await controller.Cancel(Guid.NewGuid(), new TicketCancelationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<BadRequestResult>(result);
     }
 
     [Fact]
     public async Task Cancel_WhenClaimDoesNotMatchUserId_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
         SetAuthenticatedUser(controller, Guid.NewGuid());
 
+        // Act
         var result = await controller.Cancel(TicketIdValue, new TicketCancelationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
-    public async Task Cancel_WhenClaimMissing_ReturnsUnauthorized()
+    public async Task Cancel_WhenIdClaimMissing_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
         SetAuthenticatedUser(controller);
 
+        // Act
         var result = await controller.Cancel(TicketIdValue, new TicketCancelationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
-
+        
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
     public async Task Cancel_WhenClaimMalformed_ReturnsUnauthorized()
     {
+        // Arrange
         var controller = CreateController();
         SetRawClaim(controller, "not-a-guid");
 
+        // Act
         var result = await controller.Cancel(TicketIdValue, new TicketCancelationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
-    public async Task Cancel_WhenAllMatch_ReturnsOk()
+    public async Task Cancel_ForSuccessResult_ReturnsOk()
     {
+        // Arrange
         var ticketId = TicketId.Create(TicketIdValue);
         var controller = CreateController(commandSetup: mock =>
         {
@@ -306,163 +353,222 @@ public class TicketsControllerTests
         });
         SetAuthenticatedUser(controller, UserIdValue);
 
+        // Act
         var result = await controller.Cancel(TicketIdValue, new TicketCancelationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
 
+        // Assert
         Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
-    public async Task Reserve_WhenTicketNotAvailable_ReturnsConflict()
+    public async Task Reserve_ForTicketNotAvailableErrorResult_ReturnsConflict()
     {
-        var result = await ReserveWithError(new TicketNotAvailableError("Not available"));
+        // Arrange
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<TicketReservationCommand, TicketReservationResult>(It.IsAny<TicketReservationCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TicketReservationResult(new TicketNotAvailableError("Not available")));
+        });
+        SetAuthenticatedUser(controller, UserIdValue);
 
+        // Act
+        var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
+        {
+            TicketId = TicketIdValue,
+            UserId = UserIdValue
+        });
+
+        // Assert
         Assert.IsType<ConflictResult>(result);
     }
 
     [Fact]
-    public async Task Reserve_WhenUnauthorizedUserError_ReturnsUnauthorized()
+    public async Task Reserve_ForUnauthorizedUserErrorResult_ReturnsUnauthorized()
     {
-        var result = await ReserveWithError(new UnauthorizedUserError("Forbidden"));
+        // Arrange
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<TicketReservationCommand, TicketReservationResult>(It.IsAny<TicketReservationCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TicketReservationResult(new UnauthorizedUserError("Forbidden")));
+        });
+        SetAuthenticatedUser(controller, UserIdValue);
 
+        // Act
+        var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
+        {
+            TicketId = TicketIdValue,
+            UserId = UserIdValue
+        });
+
+        // Assert
         Assert.IsType<UnauthorizedResult>(result);
     }
 
     [Fact]
     public async Task Reserve_WhenNotFoundError_ReturnsNotFound()
     {
-        var result = await ReserveWithError(new NotFoundError("Missing"));
-
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task Reserve_WhenUnexpectedError_Returns500()
-    {
-        var result = await ReserveWithError(new InvalidCredentialsError("Unexpected"));
-
-        var statusCode = Assert.IsType<StatusCodeResult>(result);
-        Assert.Equal(500, statusCode.StatusCode);
-    }
-
-    private static async Task<IActionResult> ReserveWithError(Error error)
-    {
+        // Arrange
         var controller = CreateController(commandSetup: mock =>
         {
             mock.Setup(d => d.DispatchAsync<TicketReservationCommand, TicketReservationResult>(It.IsAny<TicketReservationCommand>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new TicketReservationResult(error));
+                .ReturnsAsync(new TicketReservationResult(new NotFoundError("Missing")));
         });
         SetAuthenticatedUser(controller, UserIdValue);
 
-        return await controller.Reserve(TicketIdValue, new TicketReservationRequest
+        // Act
+        var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
         {
             TicketId = TicketIdValue,
             UserId = UserIdValue
         });
+
+        // Assert
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Reserve_ForUnexpectedErrorResult_Returns500()
+    {
+        // Arrange
+        var controller = CreateController(commandSetup: mock =>
+        {
+            mock.Setup(d => d.DispatchAsync<TicketReservationCommand, TicketReservationResult>(It.IsAny<TicketReservationCommand>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new TicketReservationResult(new UnexpectedError("Unexpected")));
+        });
+        SetAuthenticatedUser(controller, UserIdValue);
+
+        // Act
+        var result = await controller.Reserve(TicketIdValue, new TicketReservationRequest
+        {
+            TicketId = TicketIdValue,
+            UserId = UserIdValue
+        });
+
+        // Assert
+        var statusCode = Assert.IsType<StatusCodeResult>(result);
+        Assert.Equal(500, statusCode.StatusCode);
     }
 
     [Fact]
     public void GetTicketById_Documentation_ContainsStatus200OK()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.GetTicketById)));
     }
 
     [Fact]
     public void GetTicketById_Documentation_ContainsStatus404NotFound()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(TicketsController.GetTicketById)));
     }
 
     [Fact]
     public void GetTicketById_Documentation_ContainsStatus500InternalServerError()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.GetTicketById)));
     }
 
     [Fact]
     public void GetTicketByEvent_Documentation_ContainsStatus200OK()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.GetTicketByEvent)));
     }
 
     [Fact]
     public void GetTicketByEvent_Documentation_ContainsStatus500InternalServerError()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.GetTicketByEvent)));
     }
 
     [Fact]
     public void Reserve_Documentation_ContainsStatus200OK()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.Reserve)));
     }
 
     [Fact]
     public void Reserve_Documentation_ContainsStatus400BadRequest()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(TicketsController.Reserve)));
     }
 
     [Fact]
     public void Reserve_Documentation_ContainsStatus401Unauthorized()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(TicketsController.Reserve)));
     }
 
     [Fact]
     public void Reserve_Documentation_ContainsStatus404NotFound()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(TicketsController.Reserve)));
     }
 
     [Fact]
     public void Reserve_Documentation_ContainsStatus409Conflict()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status409Conflict, GetDocumentedCodes(nameof(TicketsController.Reserve)));
     }
 
     [Fact]
     public void Reserve_Documentation_ContainsStatus500InternalServerError()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.Reserve)));
     }
 
     [Fact]
     public void Cancel_Documentation_ContainsStatus200OK()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status200OK, GetDocumentedCodes(nameof(TicketsController.Cancel)));
     }
 
     [Fact]
     public void Cancel_Documentation_ContainsStatus400BadRequest()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status400BadRequest, GetDocumentedCodes(nameof(TicketsController.Cancel)));
     }
 
     [Fact]
     public void Cancel_Documentation_ContainsStatus401Unauthorized()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status401Unauthorized, GetDocumentedCodes(nameof(TicketsController.Cancel)));
     }
 
     [Fact]
     public void Cancel_Documentation_ContainsStatus404NotFound()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status404NotFound, GetDocumentedCodes(nameof(TicketsController.Cancel)));
     }
 
     [Fact]
     public void Cancel_Documentation_ContainsStatus409Conflict()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status409Conflict, GetDocumentedCodes(nameof(TicketsController.Cancel)));
     }
 
     [Fact]
     public void Cancel_Documentation_ContainsStatus500InternalServerError()
     {
+        // Arrange && Act && Assert
         Assert.Contains(StatusCodes.Status500InternalServerError, GetDocumentedCodes(nameof(TicketsController.Cancel)));
     }
 
