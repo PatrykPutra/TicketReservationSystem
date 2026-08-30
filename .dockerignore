@@ -1,0 +1,12 @@
+.git
+.github
+.vs
+.vscode
+.opencode
+.scratch
+docs
+bin
+obj
+
+appsettings.Development.json
+appsettings.Production.json
