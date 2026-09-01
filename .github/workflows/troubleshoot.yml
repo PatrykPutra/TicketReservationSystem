@@ -1,4 +1,4 @@
-name: Deploy
+name: Troubleshoot
 
 on:
   push:
