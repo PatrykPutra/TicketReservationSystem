@@ -54,7 +54,7 @@ jobs:
           script: |
             docker load < /tmp/ticketreservationsystem.tar.gz
 
-            cd /opt/TicketReservationSystem
+            cd opt/TicketReservationSystem
 
             docker compose up -d --force-recreate --remove-orphans
 
