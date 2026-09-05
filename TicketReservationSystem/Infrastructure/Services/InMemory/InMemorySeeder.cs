@@ -20,7 +20,7 @@ public class InMemorySeeder
         if (existingEvents.Count > 0)
             return;
 
-        var eventId = SocialEventId.Create(Guid.Parse("ABCDABCD-ABCD-ABCD-ABCD-ABCDABCDABCD"));
+        var eventId = SocialEventId.Create(Guid.Parse("ABCDABCD-ABCD-ABCD-ABCD-ABCDABCDANEW"));
         var timeRange = new DateTimeRange(
             new DateTime(2027, 1, 15, 19, 0, 0, DateTimeKind.Utc),
             new DateTime(2027, 1, 15, 23, 0, 0, DateTimeKind.Utc));
