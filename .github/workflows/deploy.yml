@@ -56,7 +56,7 @@ jobs:
 
             cd opt/TicketReservationSystem
 
-            docker compose up -d --force-recreate --remove-orphans
+            docker compose up -d
 
             rm /tmp/ticketreservationsystem.tar.gz
 
