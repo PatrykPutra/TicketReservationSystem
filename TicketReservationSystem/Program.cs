@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
@@ -7,6 +8,7 @@ using TicketReservationSystem.API.Middleware;
 using TicketReservationSystem.Application;
 using TicketReservationSystem.Application.Authentication;
 using TicketReservationSystem.Infrastructure;
+using TicketReservationSystem.Infrastructure.Persistence;
 using TicketReservationSystem.Infrastructure.Services.InMemory;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,7 +46,16 @@ builder.Services.AddScoped<IStripeHelperService, StripeHelperService>();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+using var scope = app.Services.CreateScope();
+var dbContext = scope.ServiceProvider.GetService<ApplicationDbContext>();
+
+var pendingMigrations = dbContext?.Database.GetPendingMigrations();
+if (pendingMigrations?.Any() == true)
+{
+    dbContext?.Database.Migrate();
+}
+
+if (dbContext?.Database.CanConnect() == true)
 {
     var seeder = scope.ServiceProvider.GetRequiredService<InMemorySeeder>();
     await seeder.SeedAsync();
