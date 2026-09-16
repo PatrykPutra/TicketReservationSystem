@@ -66,6 +66,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.MapOpenApi(); // Just for demonstration purposes, remove this line in production
+
 app.MapScalarApiReference();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseHttpsRedirection();
