@@ -19,7 +19,10 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddDbContext<ApplicationDbContext>(option =>
-            option.UseSqlServer(configuration.GetConnectionString("ConnectionString")));
+        {
+            var connectionString = configuration.GetConnectionString("ConnectionString");
+            option.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 2, 31)));
+        });
 
         var stripeSettings = configuration.GetSection(StripeSettings.SectionName).Get<StripeSettings>();
         Stripe.StripeConfiguration.ApiKey = stripeSettings?.SecretKey;
