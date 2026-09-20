@@ -109,6 +109,7 @@ namespace TicketReservationSystem.API.Controllers
             return error switch
             {
                 TicketNotAvailableError => new ConflictResult(),
+                ConcurrencyConflictError => new ConflictResult(),
                 UnauthorizedUserError => new UnauthorizedResult(),
                 NotFoundError => new NotFoundResult(),
                 _ => new StatusCodeResult(500)

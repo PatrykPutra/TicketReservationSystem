@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Repositories;
@@ -26,7 +27,14 @@ namespace TicketReservationSystem.Application.Commands.Tickets
             ticket.Cancel(request.UserId);
             ticket.SocialEvent.CancelReservation();
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return new TicketCancelationResult(new ConcurrencyConflictError("Ticket was modified concurrently, please retry"));
+            }
 
             return TicketCancelationResult.Success(ticket.Id, ticket.Status);
         }

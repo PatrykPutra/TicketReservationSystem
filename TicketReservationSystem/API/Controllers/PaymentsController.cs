@@ -51,6 +51,7 @@ namespace TicketReservationSystem.API.Controllers
                 TicketNotReservedError => new ConflictResult(),
                 TicketNotAvailableError => new ConflictResult(),
                 DuplicatePaymentError => new ConflictResult(),
+                ConcurrencyConflictError => new ConflictResult(),
                 UnauthorizedUserError => new UnauthorizedResult(),
                 NotFoundError => new NotFoundResult(),
                 CurrencyMismatchError => new BadRequestResult(),

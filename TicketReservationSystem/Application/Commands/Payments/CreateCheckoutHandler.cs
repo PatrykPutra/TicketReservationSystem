@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Errors;
 using TicketReservationSystem.Domain.Entities;
@@ -48,7 +49,14 @@ namespace TicketReservationSystem.Application.Commands.Payments
             var session = sessionResult.Value;
             payment.SetExternalId(session.SessionId);
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return new CreateCheckoutResult(new ConcurrencyConflictError("Ticket was modified concurrently, please retry"));
+            }
 
             return CreateCheckoutResult.Success(session.CheckoutUrl, session.SessionId, paymentId);
         }

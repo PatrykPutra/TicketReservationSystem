@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Stripe.Checkout;
 using TicketReservationSystem.Application.Abstractions;
 using TicketReservationSystem.Application.Errors;
@@ -84,7 +85,14 @@ namespace TicketReservationSystem.Application.Commands.Payments
                     return Result.Failure(new PaymentProcessingError("Not supported event type."));
             }
 
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Result.Failure(new ConcurrencyConflictError("Ticket was modified concurrently, please retry"));
+            }
 
             return Result.Success();
         }
