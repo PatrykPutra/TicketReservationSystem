@@ -44,6 +44,17 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddScoped<IStripeHelperService, StripeHelperService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DefaultPolicy", configuration =>
+    {
+        configuration.AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowAnyOrigin();
+        //.WithOrigins("http://localhost:5500");
+    });
+});
+
 var app = builder.Build();
 
 using var scope = app.Services.CreateScope();
@@ -70,6 +81,7 @@ app.MapOpenApi(); // Just for demonstration purposes, remove this line in produc
 
 app.MapScalarApiReference();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+app.UseCors("DefaultPolicy");
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
